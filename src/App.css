@@ -62,6 +62,7 @@ button.is-selected {
 .title-screen h1 {
   align-self: end;
   margin: 0 0 88px;
+  transform: translateY(72px);
   color: #164f8d;
   font-size: clamp(3.5rem, 12vw, 9rem);
   line-height: 0.92;
@@ -72,6 +73,7 @@ button.is-selected {
 .title-menu {
   display: grid;
   gap: 12px;
+  transform: translateY(72px);
 }
 
 .title-menu button {
@@ -92,7 +94,7 @@ button.is-selected {
 
 .title-error {
   align-self: start;
-  margin: 20px 0 0;
+  margin: 60px 0 0;
   color: #fff;
   text-shadow: 1px 1px 0 #111;
 }
@@ -100,6 +102,60 @@ button.is-selected {
 .button-list button.is-selected,
 .battle-command-window button.is-selected {
   background: rgba(255, 255, 255, 0.18);
+}
+
+.main-menu-screen {
+  position: relative;
+  min-height: 100vh;
+  padding: 32px;
+  box-sizing: border-box;
+}
+
+.main-menu-money,
+.main-menu-message {
+  margin: 0;
+}
+
+.main-menu-message {
+  color: #c62828;
+}
+
+.main-menu-actions {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.main-menu-inn-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.main-menu-inn-action button:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.main-menu-inn-cost {
+  color: #fff;
+}
+
+.main-menu-party-window {
+  top: 28px;
+  right: 28px;
+  width: 304px;
+  padding: 14px 18px;
+}
+
+.main-menu-party-window ul {
+  list-style: none;
+}
+
+.main-menu-party-window li {
+  display: grid;
+  grid-template-columns: minmax(88px, 1fr) auto;
+  align-items: center;
+  gap: 18px;
 }
 
 .battle-screen {
@@ -183,8 +239,11 @@ button.is-selected {
 
 .unit-card.is-acting-character {
   translate: 0 -6px;
-  transition: translate 120ms ease-out;
   z-index: 2;
+}
+
+.unit-card.is-damaged-unit {
+  animation: damage-hit 360ms ease-out;
 }
 
 .battle-screen.is-target-selecting .unit-card.is-active-character::after {
@@ -193,10 +252,17 @@ button.is-selected {
 
 .enemy-unit {
   justify-self: start;
+  transition: translate 220ms ease-in-out;
+}
+
+.enemy-unit.is-defeated-enemy {
+  animation: enemy-defeat 450ms ease-out forwards;
+  pointer-events: none;
 }
 
 .party-unit {
   justify-self: end;
+  transition: translate 220ms ease-in-out;
 }
 
 .battle-side-enemy .formation-slot-1 {
@@ -424,6 +490,25 @@ button.is-selected {
   padding-left: 1.4em;
 }
 
+
+.screen-fade-overlay,
+.result-fade-overlay {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.screen-fade-overlay.is-active {
+  animation: screen-fade-pulse 1000ms ease-in-out forwards;
+}
+
+.result-fade-overlay {
+  animation: result-fade-out 600ms ease-in forwards;
+}
+
 .result-screen {
   position: relative;
   min-height: 100vh;
@@ -572,6 +657,102 @@ button.is-selected {
   color: #fff;
   font-weight: 700;
   text-shadow: 1px 1px 0 #111;
+}
+
+.result-money-window {
+  left: 50%;
+  top: 50%;
+  display: grid;
+  gap: 8px;
+  width: min(58vw, 560px);
+  padding: 30px 42px;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  border: 3px solid var(--jrpg-frame-color);
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font: inherit;
+  font-size: clamp(1.6rem, 4vw, 3rem);
+  line-height: 1.15;
+  text-align: center;
+  text-shadow: 2px 2px 0 #111;
+}
+
+.result-money-window strong {
+  color: #fff;
+  font-weight: 700;
+}
+
+
+@keyframes screen-fade-pulse {
+  0% {
+    opacity: 0;
+  }
+
+  35%,
+  70% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes result-fade-out {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes damage-hit {
+  0% {
+    filter: brightness(1);
+    box-shadow: 0 0 0 rgba(255, 64, 64, 0);
+    scale: 1;
+  }
+
+  30% {
+    filter: brightness(1.7) saturate(1.6);
+    box-shadow: 0 0 18px rgba(255, 64, 64, 0.95);
+    scale: 1.08;
+  }
+
+  60% {
+    filter: brightness(0.75) saturate(1.25);
+    box-shadow: 0 0 10px rgba(255, 64, 64, 0.7);
+    scale: 0.96;
+  }
+
+  100% {
+    filter: brightness(1);
+    box-shadow: 0 0 0 rgba(255, 64, 64, 0);
+    scale: 1;
+  }
+}
+
+@keyframes enemy-defeat {
+  0% {
+    filter: brightness(1.8);
+    opacity: 1;
+    scale: 1;
+  }
+
+  45% {
+    filter: brightness(2.4);
+    opacity: 0.8;
+    scale: 1.08;
+  }
+
+  100% {
+    filter: brightness(1);
+    opacity: 0;
+    scale: 0.78;
+  }
 }
 
 @keyframes level-up-bounce {

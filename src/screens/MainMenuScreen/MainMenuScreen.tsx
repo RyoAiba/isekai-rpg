@@ -1,19 +1,29 @@
 import { useCallback, useEffect, useState } from 'react'
 import { InputManager } from '../../input/InputManager'
+import type { Character } from '../../types/character'
 
 type MainMenuScreenProps = {
+  money: number
+  party: Character[]
+  innCost: number
   onBattle: () => void
+  onStayAtInn: () => boolean
   onBackToTitle: () => void
 }
 
-const menuActions = ['battle', 'title'] as const
+const menuActions = ['battle', 'inn', 'title'] as const
 type MainMenuAction = (typeof menuActions)[number]
 
 export function MainMenuScreen({
+  money,
+  party,
+  innCost,
   onBattle,
+  onStayAtInn,
   onBackToTitle,
 }: MainMenuScreenProps) {
   const [selectedIndex, setSelectedIndex] = useState(0)
+  const canUseInn = money >= innCost
 
   const executeAction = useCallback((action: MainMenuAction) => {
     if (action === 'battle') {
@@ -21,8 +31,15 @@ export function MainMenuScreen({
       return
     }
 
+    if (action === 'inn') {
+      if (canUseInn) {
+        onStayAtInn()
+      }
+      return
+    }
+
     onBackToTitle()
-  }, [onBackToTitle, onBattle])
+  }, [canUseInn, onBackToTitle, onBattle, onStayAtInn])
 
   useEffect(() => {
     return InputManager.subscribe(() => {
@@ -45,9 +62,11 @@ export function MainMenuScreen({
   }, [executeAction, selectedIndex])
 
   return (
-    <section className="screen">
+    <section className="screen main-menu-screen">
       <h1>メイン画面</h1>
-      <div className="button-list">
+      <p className="main-menu-money">所持金 {money} ルク</p>
+
+      <div className="button-list main-menu-actions">
         <button
           className={selectedIndex === 0 ? 'is-selected' : ''}
           type="button"
@@ -56,15 +75,49 @@ export function MainMenuScreen({
         >
           戦闘する
         </button>
+        <div className="main-menu-inn-action">
+          <button
+            className={selectedIndex === 1 ? 'is-selected' : ''}
+            type="button"
+            onClick={() => {
+              if (canUseInn) {
+                onStayAtInn()
+              }
+            }}
+            onMouseEnter={() => setSelectedIndex(1)}
+            disabled={!canUseInn}
+          >
+            宿屋
+          </button>
+          <span className="main-menu-inn-cost">{innCost}ルク</span>
+        </div>
         <button
-          className={selectedIndex === 1 ? 'is-selected' : ''}
+          className={selectedIndex === 2 ? 'is-selected' : ''}
           type="button"
           onClick={onBackToTitle}
-          onMouseEnter={() => setSelectedIndex(1)}
+          onMouseEnter={() => setSelectedIndex(2)}
         >
           タイトルへ戻る
         </button>
       </div>
+
+      <aside className="main-menu-party-window battle-window" aria-label="味方HP一覧">
+        <ul>
+          {party.map((character) => (
+            <li key={character.id}>
+              <span>{character.name}</span>
+              <span className="hp-value">
+                <span className="heart-mark" aria-label="HP">
+                  ♥
+                </span>
+                <span>{character.hp}</span>
+                <span>/</span>
+                <span>{character.maxHp}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </aside>
     </section>
   )
 }

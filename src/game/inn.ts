@@ -1,0 +1,14 @@
+import type { Character } from '../types/character'
+
+export const INN_COST = 20
+
+export function canStayAtInn(money: number) {
+  return money >= INN_COST
+}
+
+export function healPartyAtInn(party: Character[]) {
+  return party.map((character) => ({
+    ...character,
+    hp: character.maxHp,
+  }))
+}

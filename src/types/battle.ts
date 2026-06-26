@@ -8,6 +8,7 @@ export type BattlePhase =
   | 'targetSelection'
   | 'confirmActions'
   | 'executing'
+  | 'enemyExecuting'
   | 'resolving'
 
 export type PartyCommandType = 'fight' | 'escape' | 'auto'
@@ -54,10 +55,18 @@ export type BattleState = {
   selectedConfirmIndex: number
   isAutoCommandConfirm: boolean
   actions: BattleAction[]
+  party: Character[]
   enemies: Character[]
   timeline: BattleTimelineEvent[]
   executingActionIndex: number
+  executingEnemyIndex: number
   executingCharacterId?: number
+  executingEnemyId?: number
   lastActionDefeatedEnemy: boolean
+  lastDefeatedEnemyId?: number
+  lastDamagedEnemyId?: number
+  lastDamagedCharacterId?: number
+  lastDamageEventId: number
   isVictory: boolean
+  isDefeat: boolean
 }

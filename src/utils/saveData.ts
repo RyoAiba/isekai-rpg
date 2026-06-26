@@ -32,7 +32,10 @@ export function loadGame(): GameSaveData | null {
       return null
     }
 
-    return { party: parsedSaveData.party }
+    return {
+      party: parsedSaveData.party,
+      money: typeof parsedSaveData.money === 'number' ? parsedSaveData.money : 0,
+    }
   } catch {
     return null
   }
