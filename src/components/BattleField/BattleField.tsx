@@ -4,6 +4,7 @@ import type { Character, CharacterPosition } from '../../types/character'
 type BattleFieldProps = {
   party: Character[]
   activeCharacterId?: number
+  activeEnemyId?: number
 }
 
 const positionLabel: Record<CharacterPosition, string> = {
@@ -16,7 +17,7 @@ const orderedEnemies = [
   ...enemies.filter((enemy) => enemy.position === 'front'),
 ]
 
-export function BattleField({ party, activeCharacterId }: BattleFieldProps) {
+export function BattleField({ party, activeCharacterId, activeEnemyId }: BattleFieldProps) {
   const orderedParty = [
     ...party.filter((character) => character.position === 'front'),
     ...party.filter((character) => character.position === 'back'),
@@ -27,7 +28,9 @@ export function BattleField({ party, activeCharacterId }: BattleFieldProps) {
       <div className="battle-side battle-side-enemy" aria-label="敵エリア">
         {orderedEnemies.map((enemy, index) => (
           <div
-            className={`unit-card enemy-unit formation-slot-${index + 1}`}
+            className={`unit-card enemy-unit formation-slot-${index + 1}${
+              enemy.id === activeEnemyId ? ' is-active-character' : ''
+            }`}
             key={enemy.id}
           >
             <span>{enemy.name}</span>

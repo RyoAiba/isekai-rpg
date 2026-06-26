@@ -1,6 +1,11 @@
 export type BattleActionType = 'attack' | 'defense' | 'skill' | 'magic' | 'item'
 
-export type BattlePhase = 'partyCommand' | 'characterCommand' | 'confirmActions' | 'resolving'
+export type BattlePhase =
+  | 'partyCommand'
+  | 'characterCommand'
+  | 'targetSelection'
+  | 'confirmActions'
+  | 'resolving'
 
 export type PartyCommandType = 'fight' | 'escape' | 'auto'
 
@@ -37,6 +42,7 @@ export type BattleState = {
   activeCharacterIndex: number
   selectedPartyCommandIndex: number
   selectedCharacterCommandIndex: number
+  selectedTargetIndex: number
   selectedConfirmIndex: number
   actions: BattleAction[]
 }

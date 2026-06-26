@@ -132,7 +132,7 @@ button.is-selected {
 
 .battle-side-enemy {
   left: clamp(32px, 8vw, 112px);
-  top: 31%;
+  top: 28%;
 }
 
 .battle-side-party {
@@ -164,8 +164,12 @@ button.is-selected {
   inset: -5px;
   border: 3px solid #fff;
   box-shadow: 0 0 14px rgba(255, 255, 255, 0.9);
-  animation: active-character-blink 650ms steps(2, end) infinite;
+  animation: active-character-blink 900ms steps(2, end) infinite;
   pointer-events: none;
+}
+
+.battle-screen.is-target-selecting .unit-card.is-active-character::after {
+  animation: synchronized-active-character-blink 900ms steps(2, end) infinite;
 }
 
 .enemy-unit {
@@ -271,15 +275,39 @@ button.is-selected {
   left: 28px;
   bottom: 28px;
   display: grid;
-  grid-auto-flow: column;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 24px;
-  min-width: 220px;
+  width: 384px;
   padding: 16px 20px;
+  box-sizing: border-box;
 }
 
 .enemy-list-window ul,
 .party-hp-window ul {
   list-style: none;
+}
+
+.enemy-list-window ul {
+  min-width: 0;
+}
+
+.enemy-list-window button {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0 8px;
+  text-align: left;
+  text-shadow: inherit;
+}
+
+.enemy-list-window button.is-selected {
+  background: rgba(255, 255, 255, 0.18);
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
 }
 
 .party-hp-window {
@@ -294,14 +322,14 @@ button.is-selected {
   gap: 18px;
 }
 
-.party-hp-window li.is-active-character > span:first-child {
+.party-hp-window li.is-active-character>span:first-child {
   color: #fff;
   text-shadow:
     0 0 6px rgba(255, 255, 255, 0.9),
     1px 1px 0 #111;
 }
 
-.party-hp-window li.is-inactive-character > span:first-child,
+.party-hp-window li.is-inactive-character>span:first-child,
 .party-hp-window li.is-inactive-character .hp-value {
   color: rgba(255, 255, 255, 0.38);
 }
@@ -528,6 +556,19 @@ button.is-selected {
 }
 
 @keyframes active-character-blink {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.18;
+  }
+}
+
+@keyframes synchronized-active-character-blink {
+
   0%,
   100% {
     opacity: 1;
@@ -561,7 +602,7 @@ button.is-selected {
 
   .battle-side-enemy {
     left: 16px;
-    top: 150px;
+    top: 140px;
     transform: scale(0.78);
   }
 
