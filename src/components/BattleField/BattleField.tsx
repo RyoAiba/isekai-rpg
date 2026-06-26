@@ -1,23 +1,27 @@
-import { enemies } from '../../data/enemies'
-import type { Character, CharacterPosition } from '../../types/character'
+import type { Character } from '../../types/character'
 
 type BattleFieldProps = {
   party: Character[]
+  enemies: Character[]
   activeCharacterId?: number
   activeEnemyId?: number
+  actingCharacterId?: number
+  showDebugInfo?: boolean
 }
 
-const positionLabel: Record<CharacterPosition, string> = {
-  front: '前衛',
-  back: '後衛',
-}
-
-const orderedEnemies = [
-  ...enemies.filter((enemy) => enemy.position === 'back'),
-  ...enemies.filter((enemy) => enemy.position === 'front'),
-]
-
-export function BattleField({ party, activeCharacterId, activeEnemyId }: BattleFieldProps) {
+export function BattleField({
+  party,
+  enemies,
+  activeCharacterId,
+  activeEnemyId,
+  actingCharacterId,
+  showDebugInfo = false,
+}: BattleFieldProps) {
+  const aliveEnemies = enemies.filter((enemy) => enemy.hp > 0)
+  const orderedEnemies = [
+    ...aliveEnemies.filter((enemy) => enemy.position === 'back'),
+    ...aliveEnemies.filter((enemy) => enemy.position === 'front'),
+  ]
   const orderedParty = [
     ...party.filter((character) => character.position === 'front'),
     ...party.filter((character) => character.position === 'back'),
@@ -26,35 +30,48 @@ export function BattleField({ party, activeCharacterId, activeEnemyId }: BattleF
   return (
     <div className="battle-field" aria-label="戦闘フィールド">
       <div className="battle-side battle-side-enemy" aria-label="敵エリア">
-        {orderedEnemies.map((enemy, index) => (
-          <div
-            className={`unit-card enemy-unit formation-slot-${index + 1}${
-              enemy.id === activeEnemyId ? ' is-active-character' : ''
-            }`}
-            key={enemy.id}
-          >
-            <span>{enemy.name}</span>
-            <small>
-              {positionLabel[enemy.position]} / {enemy.range}
-            </small>
-          </div>
-        ))}
+        {orderedEnemies.map((enemy, index) => {
+          const enemyClassName = [
+            'unit-card',
+            'enemy-unit',
+            'formation-slot-' + (index + 1),
+            enemy.id === activeEnemyId ? 'is-active-character' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')
+
+          return (
+            <div className={enemyClassName} key={enemy.id}>
+              <span>{enemy.name}</span>
+              {showDebugInfo && (
+                <small className="unit-debug-info">
+                  {enemy.range} HP {enemy.hp}/{enemy.maxHp}
+                </small>
+              )}
+            </div>
+          )
+        })}
       </div>
 
       <div className="battle-side battle-side-party" aria-label="味方エリア">
-        {orderedParty.map((character, index) => (
-          <div
-            className={`unit-card party-unit formation-slot-${index + 1}${
-              character.id === activeCharacterId ? ' is-active-character' : ''
-            }`}
-            key={character.id}
-          >
-            <span>{character.name}</span>
-            <small>
-              {positionLabel[character.position]} / {character.range}
-            </small>
-          </div>
-        ))}
+        {orderedParty.map((character, index) => {
+          const partyClassName = [
+            'unit-card',
+            'party-unit',
+            'formation-slot-' + (index + 1),
+            character.id === activeCharacterId ? 'is-active-character' : '',
+            character.id === actingCharacterId ? 'is-acting-character' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')
+
+          return (
+            <div className={partyClassName} key={character.id}>
+              <span>{character.name}</span>
+              {showDebugInfo && <small className="unit-debug-info">{character.range}</small>}
+            </div>
+          )
+        })}
       </div>
     </div>
   )

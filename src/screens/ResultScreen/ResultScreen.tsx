@@ -116,7 +116,7 @@ export function ResultScreen({
   return (
     <section className="result-screen">
       <div className="result-battle-backdrop" aria-hidden="true">
-        <BattleField party={party} />
+        <BattleField party={party} enemies={enemies} />
       </div>
       <div className="result-mask" />
 

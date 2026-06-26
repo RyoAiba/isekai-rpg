@@ -1,3 +1,5 @@
+import type { Character } from './character'
+
 export type BattleActionType = 'attack' | 'defense' | 'skill' | 'magic' | 'item'
 
 export type BattlePhase =
@@ -5,6 +7,7 @@ export type BattlePhase =
   | 'characterCommand'
   | 'targetSelection'
   | 'confirmActions'
+  | 'executing'
   | 'resolving'
 
 export type PartyCommandType = 'fight' | 'escape' | 'auto'
@@ -17,6 +20,11 @@ export type BattleAction = {
   targetId?: number
   skillId?: string
   itemId?: string
+}
+
+export type BattleTimelineEvent = {
+  id: number
+  message: string
 }
 
 export type BattleCommand = {
@@ -44,5 +52,12 @@ export type BattleState = {
   selectedCharacterCommandIndex: number
   selectedTargetIndex: number
   selectedConfirmIndex: number
+  isAutoCommandConfirm: boolean
   actions: BattleAction[]
+  enemies: Character[]
+  timeline: BattleTimelineEvent[]
+  executingActionIndex: number
+  executingCharacterId?: number
+  lastActionDefeatedEnemy: boolean
+  isVictory: boolean
 }

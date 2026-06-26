@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import {
   applyCharacterCommand,
   applyConfirmCommand,
@@ -6,6 +7,7 @@ import {
   applyTargetSelection,
   cancelTargetSelection,
   createInitialBattleState,
+  executeNextBattleAction,
   getActiveCharacter,
   moveSelection,
   moveTargetSelection,
@@ -21,7 +23,7 @@ import {
   DEFAULT_CHARACTER_COMMANDS,
   PARTY_COMMANDS,
 } from '../../data/battleCommands'
-import { enemies } from '../../data/enemies'
+import { enemies as initialEnemies } from '../../data/enemies'
 import { useBattleCommandInput } from '../../hooks/useBattleCommandInput'
 import type { Character } from '../../types/character'
 
@@ -31,22 +33,15 @@ type BattleScreenProps = {
   onEscape: () => void
 }
 
-const frontEnemies = enemies.filter((enemy) => enemy.position === 'front')
-const backEnemies = enemies.filter((enemy) => enemy.position === 'back')
-const selectableEnemyColumns = [
-  [...backEnemies].reverse(),
-  [...frontEnemies].reverse(),
-]
-const selectableEnemies = selectableEnemyColumns.flatMap((column) => column)
-const targetRowCount = selectableEnemyColumns[0]?.length ?? 0
-const defaultTargetIndex = Math.max(
-  selectableEnemies.findIndex((enemy) => enemy.id === frontEnemies.at(-1)?.id),
-  0,
-)
+const isBattleDebugEnabled = import.meta.env.VITE_ENABLE_BATTLE_DEBUG === 'true'
+const BATTLE_ACTION_INTERVAL_MS = 500
+const BATTLE_DEFEAT_CHAIN_INTERVAL_MS = 150
 
 export function BattleScreen({ party, onBattleEnd, onEscape }: BattleScreenProps) {
-  const timerRef = useRef<number | null>(null)
-  const [battleState, setBattleState] = useState(createInitialBattleState)
+  const resultTimerRef = useRef<number | null>(null)
+  const actionTimerRef = useRef<number | null>(null)
+  const [battleState, setBattleState] = useState(() => createInitialBattleState(initialEnemies))
+  const isExecuting = battleState.phase === 'executing'
   const isResolving = battleState.phase === 'resolving'
   const isSelectingCharacter = battleState.phase === 'characterCommand'
   const showsBattleWindows =
@@ -54,26 +49,102 @@ export function BattleScreen({ party, onBattleEnd, onEscape }: BattleScreenProps
     battleState.phase === 'characterCommand' ||
     battleState.phase === 'targetSelection'
   const activeCharacter = getActiveCharacter(battleState, party)
+
+  const enemyColumns = useMemo(() => {
+    const aliveEnemies = battleState.enemies.filter((enemy) => enemy.hp > 0)
+    const frontEnemies = aliveEnemies.filter((enemy) => enemy.position === 'front')
+    const backEnemies = aliveEnemies.filter((enemy) => enemy.position === 'back')
+
+    return [
+      [...backEnemies].reverse(),
+      [...frontEnemies].reverse(),
+    ]
+  }, [battleState.enemies])
+
+  const selectableEnemyColumns = useMemo(
+    () => enemyColumns.map((column) => column.filter((enemy) => enemy.hp > 0)),
+    [enemyColumns],
+  )
+  const selectableEnemies = useMemo(
+    () => selectableEnemyColumns.flatMap((column) => column),
+    [selectableEnemyColumns],
+  )
+  const targetRowCount = Math.max(selectableEnemyColumns[0]?.length ?? 0, 1)
+  const defaultTargetIndex = useMemo(() => {
+    const frontAliveEnemies = battleState.enemies.filter(
+      (enemy) => enemy.position === 'front' && enemy.hp > 0,
+    )
+    const defaultEnemyId = frontAliveEnemies.at(-1)?.id ?? selectableEnemies[0]?.id
+
+    return Math.max(
+      selectableEnemies.findIndex((enemy) => enemy.id === defaultEnemyId),
+      0,
+    )
+  }, [battleState.enemies, selectableEnemies])
   const activeEnemy = selectableEnemies[battleState.selectedTargetIndex]
+  const enemyListColumnWidth = useMemo(() => {
+    const longestEnemyNameLength = battleState.enemies.reduce(
+      (longestLength, enemy) => (enemy.hp > 0 ? Math.max(longestLength, enemy.name.length) : longestLength),
+      0,
+    )
+
+    return `${Math.max(longestEnemyNameLength + 2, 5)}em`
+  }, [battleState.enemies])
 
   useEffect(() => {
     return () => {
-      if (timerRef.current !== null) {
-        window.clearTimeout(timerRef.current)
+      if (resultTimerRef.current !== null) {
+        window.clearTimeout(resultTimerRef.current)
+      }
+      if (actionTimerRef.current !== null) {
+        window.clearTimeout(actionTimerRef.current)
       }
     }
   }, [])
 
-  const resolveBattle = useCallback(() => {
-    if (timerRef.current !== null) {
+  useEffect(() => {
+    if (battleState.phase !== 'executing') {
       return
     }
 
-    setBattleState((currentState) => ({ ...currentState, phase: 'resolving' }))
-    timerRef.current = window.setTimeout(() => {
+    const delay = battleState.executingCharacterId === undefined
+      ? 0
+      : battleState.lastActionDefeatedEnemy
+        ? BATTLE_DEFEAT_CHAIN_INTERVAL_MS
+        : BATTLE_ACTION_INTERVAL_MS
+
+    actionTimerRef.current = window.setTimeout(() => {
+      setBattleState((currentState) => executeNextBattleAction(currentState, party))
+    }, delay)
+
+    return () => {
+      if (actionTimerRef.current !== null) {
+        window.clearTimeout(actionTimerRef.current)
+      }
+    }
+  }, [
+    battleState.executingActionIndex,
+    battleState.executingCharacterId,
+    battleState.lastActionDefeatedEnemy,
+    battleState.phase,
+    party,
+  ])
+
+  useEffect(() => {
+    if (battleState.phase !== 'resolving' || !battleState.isVictory) {
+      return
+    }
+
+    resultTimerRef.current = window.setTimeout(() => {
       onBattleEnd()
-    }, 3000)
-  }, [onBattleEnd])
+    }, BATTLE_ACTION_INTERVAL_MS)
+
+    return () => {
+      if (resultTimerRef.current !== null) {
+        window.clearTimeout(resultTimerRef.current)
+      }
+    }
+  }, [battleState.isVictory, battleState.phase, onBattleEnd])
 
   const executePartyCommand = useCallback(() => {
     const command = PARTY_COMMANDS[battleState.selectedPartyCommandIndex]
@@ -88,7 +159,7 @@ export function BattleScreen({ party, onBattleEnd, onEscape }: BattleScreenProps
     }
 
     setBattleState((currentState) =>
-      applyPartyCommand(currentState, command.id, party, selectableEnemies),
+      applyPartyCommand(currentState, command.id, party, currentState.enemies),
     )
   }, [battleState.selectedPartyCommandIndex, onEscape, party])
 
@@ -97,7 +168,7 @@ export function BattleScreen({ party, onBattleEnd, onEscape }: BattleScreenProps
     setBattleState((currentState) =>
       applyCharacterCommand(currentState, command, party, defaultTargetIndex),
     )
-  }, [battleState.selectedCharacterCommandIndex, party])
+  }, [battleState.selectedCharacterCommandIndex, defaultTargetIndex, party])
 
   const cancelCharacterCommand = useCallback(() => {
     setBattleState((currentState) => returnToPreviousCharacter(currentState))
@@ -107,7 +178,7 @@ export function BattleScreen({ party, onBattleEnd, onEscape }: BattleScreenProps
     setBattleState((currentState) =>
       applyTargetSelection(currentState, selectableEnemies[currentState.selectedTargetIndex], party),
     )
-  }, [party])
+  }, [party, selectableEnemies])
 
   const cancelTarget = useCallback(() => {
     setBattleState((currentState) => cancelTargetSelection(currentState))
@@ -116,13 +187,8 @@ export function BattleScreen({ party, onBattleEnd, onEscape }: BattleScreenProps
   const executeConfirmCommand = useCallback(() => {
     const command = CONFIRM_COMMANDS[battleState.selectedConfirmIndex]
 
-    if (command.id === 'yes') {
-      resolveBattle()
-      return
-    }
-
     setBattleState((currentState) => applyConfirmCommand(currentState, command.id, party))
-  }, [battleState.selectedConfirmIndex, party, resolveBattle])
+  }, [battleState.selectedConfirmIndex, party])
 
   const moveSelectedCommand = useCallback(
     (direction: 'previous' | 'next', commandCount: number) => {
@@ -131,11 +197,14 @@ export function BattleScreen({ party, onBattleEnd, onEscape }: BattleScreenProps
     [],
   )
 
-  const moveSelectedTarget = useCallback((direction: 'up' | 'down' | 'left' | 'right') => {
-    setBattleState((currentState) =>
-      moveTargetSelection(currentState, direction, targetRowCount, selectableEnemies.length),
-    )
-  }, [])
+  const moveSelectedTarget = useCallback(
+    (direction: 'up' | 'down' | 'left' | 'right') => {
+      setBattleState((currentState) =>
+        moveTargetSelection(currentState, direction, targetRowCount, selectableEnemies.length),
+      )
+    },
+    [selectableEnemies.length, targetRowCount],
+  )
 
   useBattleCommandInput({
     battleState,
@@ -158,8 +227,11 @@ export function BattleScreen({ party, onBattleEnd, onEscape }: BattleScreenProps
     >
       <BattleField
         party={party}
+        enemies={battleState.enemies}
         activeCharacterId={activeCharacter?.id}
         activeEnemyId={battleState.phase === 'targetSelection' ? activeEnemy?.id : undefined}
+        actingCharacterId={isExecuting || isResolving ? battleState.executingCharacterId : undefined}
+        showDebugInfo={isBattleDebugEnabled}
       />
 
       {showsBattleWindows && (
@@ -179,7 +251,7 @@ export function BattleScreen({ party, onBattleEnd, onEscape }: BattleScreenProps
                         return
                       }
                       setBattleState((currentState) =>
-                        applyPartyCommand(currentState, command.id, party, selectableEnemies),
+                        applyPartyCommand(currentState, command.id, party, currentState.enemies),
                       )
                     }}
                     onMouseEnter={() =>
@@ -243,7 +315,10 @@ export function BattleScreen({ party, onBattleEnd, onEscape }: BattleScreenProps
       )}
 
       {showsBattleWindows && (
-        <div className="enemy-list-window battle-window">
+        <div
+          className="enemy-list-window battle-window"
+          style={{ '--enemy-list-column-width': enemyListColumnWidth } as CSSProperties}
+        >
           {battleState.phase === 'targetSelection' ? (
             selectableEnemyColumns.map((column, columnIndex) => (
               <ul key={columnIndex}>
@@ -272,10 +347,12 @@ export function BattleScreen({ party, onBattleEnd, onEscape }: BattleScreenProps
               </ul>
             ))
           ) : (
-            selectableEnemyColumns.map((column, index) => (
+            enemyColumns.map((column, index) => (
               <ul key={index}>
                 {column.map((enemy) => (
-                  <li key={enemy.id}>{enemy.name}</li>
+                  <li key={enemy.id}>
+                    <span className="enemy-list-name">{enemy.name}</span>
+                  </li>
                 ))}
               </ul>
             ))
@@ -292,10 +369,6 @@ export function BattleScreen({ party, onBattleEnd, onEscape }: BattleScreenProps
               type="button"
               key={command.id}
               onClick={() => {
-                if (command.id === 'yes') {
-                  resolveBattle()
-                  return
-                }
                 setBattleState((currentState) => applyConfirmCommand(currentState, command.id, party))
               }}
               onMouseEnter={() =>
@@ -308,10 +381,14 @@ export function BattleScreen({ party, onBattleEnd, onEscape }: BattleScreenProps
         </div>
       )}
 
-      {isResolving && (
-        <p className="battle-status">
-          戦闘結果を計算中... {battleState.actions.length}/{party.length}
-        </p>
+      {isBattleDebugEnabled && battleState.timeline.length > 0 && (
+        <aside className="battle-timeline battle-window" aria-label="Battle Timeline">
+          <ol>
+            {battleState.timeline.map((event) => (
+              <li key={event.id}>{event.message}</li>
+            ))}
+          </ol>
+        </aside>
       )}
     </section>
   )

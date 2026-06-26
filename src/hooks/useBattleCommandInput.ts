@@ -46,7 +46,7 @@ export function useBattleCommandInput({
 }: UseBattleCommandInputParams) {
   useEffect(() => {
     return InputManager.subscribe(() => {
-      if (battleState.phase === 'resolving') {
+      if (battleState.phase === 'executing' || battleState.phase === 'resolving') {
         return
       }
 

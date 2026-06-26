@@ -1,13 +1,19 @@
+import { calculateDamage } from './BattleCalculator'
 import type {
   BattleAction,
   BattleCommand,
   BattleState,
+  BattleTimelineEvent,
   ConfirmCommandType,
   PartyCommandType,
 } from '../types/battle'
 import type { Character } from '../types/character'
 
-export function createInitialBattleState(): BattleState {
+function cloneCharacters(characters: Character[]) {
+  return characters.map((character) => ({ ...character }))
+}
+
+export function createInitialBattleState(enemies: Character[] = []): BattleState {
   return {
     phase: 'partyCommand',
     activeCharacterIndex: 0,
@@ -15,7 +21,14 @@ export function createInitialBattleState(): BattleState {
     selectedCharacterCommandIndex: 0,
     selectedTargetIndex: 0,
     selectedConfirmIndex: 0,
+    isAutoCommandConfirm: false,
     actions: [],
+    enemies: cloneCharacters(enemies),
+    timeline: [],
+    executingActionIndex: 0,
+    executingCharacterId: undefined,
+    lastActionDefeatedEnemy: false,
+    isVictory: false,
   }
 }
 
@@ -35,23 +48,49 @@ export function startCharacterCommandInput(state: BattleState): BattleState {
     selectedCharacterCommandIndex: 0,
     selectedTargetIndex: 0,
     selectedConfirmIndex: 0,
+    isAutoCommandConfirm: false,
     actions: [],
+    executingActionIndex: 0,
+    executingCharacterId: undefined,
+    lastActionDefeatedEnemy: false,
+    isVictory: false,
   }
 }
 
-function getRandomEnemy(enemies: Character[]) {
-  if (enemies.length === 0) {
-    return undefined
+export function getAliveEnemies(enemies: Character[]) {
+  return enemies.filter((enemy) => enemy.hp > 0)
+}
+
+export function checkVictory(enemies: Character[]) {
+  return enemies.every((enemy) => enemy.hp <= 0)
+}
+
+function getPriorityEnemy(enemies: Character[]) {
+  const aliveFrontEnemies = enemies.filter(
+    (enemy) => enemy.hp > 0 && enemy.position === 'front',
+  )
+  const aliveBackEnemies = enemies.filter((enemy) => enemy.hp > 0 && enemy.position === 'back')
+
+  return [...aliveFrontEnemies].reverse()[0] ?? [...aliveBackEnemies].reverse()[0]
+}
+
+function resolveActionTarget(enemies: Character[], targetId?: number) {
+  const selectedTarget = enemies.find((enemy) => enemy.id === targetId)
+
+  if (selectedTarget && selectedTarget.hp > 0) {
+    return selectedTarget
   }
 
-  return enemies[Math.floor(Math.random() * enemies.length)]
+  return getPriorityEnemy(enemies)
 }
 
 export function createAutoActions(party: Character[], enemies: Character[]): BattleAction[] {
+  const priorityEnemy = getPriorityEnemy(enemies)
+
   return party.map((character) => ({
     characterId: character.id,
     type: 'attack',
-    targetId: getRandomEnemy(enemies)?.id,
+    targetId: priorityEnemy?.id,
   }))
 }
 
@@ -70,6 +109,7 @@ export function applyPartyCommand(
       ...state,
       phase: 'confirmActions',
       selectedConfirmIndex: 0,
+      isAutoCommandConfirm: true,
       actions: createAutoActions(party, enemies),
     }
   }
@@ -109,6 +149,7 @@ export function applyCharacterCommand(
       ...state,
       phase: 'confirmActions',
       selectedConfirmIndex: 0,
+      isAutoCommandConfirm: false,
       actions: nextActions,
     }
   }
@@ -128,7 +169,7 @@ export function applyTargetSelection(
 ): BattleState {
   const activeCharacter = party[state.activeCharacterIndex]
 
-  if (!activeCharacter || !target) {
+  if (!activeCharacter || !target || target.hp <= 0) {
     return state
   }
 
@@ -146,6 +187,7 @@ export function applyTargetSelection(
       ...state,
       phase: 'confirmActions',
       selectedConfirmIndex: 0,
+      isAutoCommandConfirm: false,
       actions: nextActions,
     }
   }
@@ -192,9 +234,22 @@ export function applyConfirmCommand(
   party: Character[],
 ): BattleState {
   if (command === 'yes') {
+    return startBattleExecution(state)
+  }
+
+  if (state.isAutoCommandConfirm) {
     return {
       ...state,
-      phase: 'resolving',
+      phase: 'partyCommand',
+      activeCharacterIndex: 0,
+      selectedPartyCommandIndex: 0,
+      selectedCharacterCommandIndex: 0,
+      selectedTargetIndex: 0,
+      selectedConfirmIndex: 0,
+      isAutoCommandConfirm: false,
+      executingActionIndex: 0,
+      executingCharacterId: undefined,
+      actions: [],
     }
   }
 
@@ -204,7 +259,117 @@ export function applyConfirmCommand(
     activeCharacterIndex: Math.max(party.length - 1, 0),
     selectedCharacterCommandIndex: 0,
     selectedTargetIndex: 0,
+    selectedConfirmIndex: 0,
+    isAutoCommandConfirm: false,
+    executingActionIndex: 0,
+    executingCharacterId: undefined,
     actions: state.actions.slice(0, -1),
+  }
+}
+
+export function startBattleExecution(state: BattleState): BattleState {
+  return {
+    ...state,
+    phase: 'executing',
+    isAutoCommandConfirm: false,
+    executingActionIndex: 0,
+    executingCharacterId: undefined,
+    lastActionDefeatedEnemy: false,
+    selectedConfirmIndex: 0,
+    isVictory: false,
+  }
+}
+
+function getNextTimelineId(timeline: BattleTimelineEvent[]) {
+  return timeline.length > 0 ? Math.max(...timeline.map((event) => event.id)) + 1 : 1
+}
+
+export function executeNextBattleAction(state: BattleState, party: Character[]): BattleState {
+  const action = state.actions[state.executingActionIndex]
+
+  if (!action) {
+    return {
+      ...state,
+      phase: 'partyCommand',
+      activeCharacterIndex: 0,
+      selectedPartyCommandIndex: 0,
+      selectedCharacterCommandIndex: 0,
+      selectedTargetIndex: 0,
+      selectedConfirmIndex: 0,
+      isAutoCommandConfirm: false,
+      executingActionIndex: 0,
+      executingCharacterId: undefined,
+      lastActionDefeatedEnemy: false,
+      actions: [],
+      isVictory: false,
+    }
+  }
+
+  const nextEnemies = cloneCharacters(state.enemies)
+  const timeline: BattleTimelineEvent[] = [...state.timeline]
+  const addTimeline = (message: string) => {
+    timeline.push({ id: getNextTimelineId(timeline), message })
+  }
+  const attacker = party.find((character) => character.id === action.characterId)
+
+  if (!attacker) {
+    return {
+      ...state,
+      executingActionIndex: state.executingActionIndex + 1,
+      executingCharacterId: undefined,
+      timeline,
+    }
+  }
+
+  let defeatedEnemyThisAction = false
+
+  if (action.type === 'defense') {
+    addTimeline(`${attacker.name}は身を守った`)
+  } else if (action.type !== 'attack') {
+    addTimeline(`${attacker.name}はまだ使えない行動を選んだ`)
+  } else {
+    const target = resolveActionTarget(nextEnemies, action.targetId)
+    const targetIndex = nextEnemies.findIndex((enemy) => enemy.id === target?.id)
+
+    if (targetIndex < 0 || !target) {
+      addTimeline(`${attacker.name}の攻撃対象はいなかった`)
+    } else {
+      const { damage } = calculateDamage({ attacker, defender: target })
+      const nextHp = Math.max(target.hp - damage, 0)
+      defeatedEnemyThisAction = nextHp === 0
+      const defeatMessage = defeatedEnemyThisAction ? `。${target.name}を倒した` : ''
+
+      nextEnemies[targetIndex] = {
+        ...target,
+        hp: nextHp,
+      }
+
+      addTimeline(`${attacker.name}は${target.name}を攻撃した。${damage}ダメージ${defeatMessage}`)
+    }
+  }
+
+  const isVictory = checkVictory(nextEnemies)
+
+  if (isVictory) {
+    addTimeline('敵を全滅させた！')
+  }
+
+  return {
+    ...state,
+    phase: isVictory ? 'resolving' : 'executing',
+    activeCharacterIndex: 0,
+    selectedPartyCommandIndex: 0,
+    selectedCharacterCommandIndex: 0,
+    selectedTargetIndex: 0,
+    selectedConfirmIndex: 0,
+    isAutoCommandConfirm: false,
+    executingActionIndex: state.executingActionIndex + 1,
+    executingCharacterId: attacker.id,
+    lastActionDefeatedEnemy: defeatedEnemyThisAction,
+    actions: isVictory ? [] : state.actions,
+    enemies: nextEnemies,
+    timeline,
+    isVictory,
   }
 }
 
