@@ -9,8 +9,8 @@ import {
   cancelTargetSelection,
   createInitialBattleState,
   executeNextBattleAction,
-  executeNextEnemyAction,
   getActiveCharacter,
+  getAlivePartyMembers,
   moveSelection,
   moveTargetSelection,
   returnToPreviousCharacter,
@@ -20,6 +20,8 @@ import {
   setSelectedTarget,
 } from '../../battle/BattleManager'
 import { BattleField } from '../../components/BattleField/BattleField'
+import { BattleTimeline } from '../../components/BattleTimeline/BattleTimeline'
+import { ResultOverlay } from '../../components/ResultOverlay/ResultOverlay'
 import {
   CONFIRM_COMMANDS,
   DEFAULT_CHARACTER_COMMANDS,
@@ -28,30 +30,54 @@ import {
 import { enemies as initialEnemies } from '../../data/enemies'
 import { useBattleCommandInput } from '../../hooks/useBattleCommandInput'
 import type { Character } from '../../types/character'
+import { isCriticalHp } from '../../utils/hp'
 
 type BattleScreenProps = {
   party: Character[]
-  onBattleEnd: (party: Character[], enemies: Character[]) => void
+  money: number
+  onBattleComplete: (party: Character[], money: number) => void
   onEscape: (party?: Character[]) => void
 }
 
 const isBattleDebugEnabled = import.meta.env.VITE_ENABLE_BATTLE_DEBUG === 'true'
+const BATTLE_START_DELAY_MS = 1000
 const BATTLE_ACTION_INTERVAL_MS = 1000
 const BATTLE_DEFEAT_CHAIN_INTERVAL_MS = 450
-const ENEMY_ACTION_INTERVAL_MS = 1000
+const RESULT_OVERLAY_DELAY_MS = 1000
 
-export function BattleScreen({ party, onBattleEnd, onEscape }: BattleScreenProps) {
+export function BattleScreen({ party, money, onBattleComplete, onEscape }: BattleScreenProps) {
   const resultTimerRef = useRef<number | null>(null)
   const actionTimerRef = useRef<number | null>(null)
   const [battleState, setBattleState] = useState(() => createInitialBattleState(initialEnemies, party))
+  const [isResultOverlayReady, setIsResultOverlayReady] = useState(false)
   const isExecuting = battleState.phase === 'executing'
   const isResolving = battleState.phase === 'resolving'
-  const isSelectingCharacter = battleState.phase === 'characterCommand'
+  const isSelectingCharacter =
+    battleState.phase === 'characterCommand' ||
+    battleState.phase === 'targetSelection' ||
+    (battleState.phase === 'confirmActions' && !battleState.isAutoCommandConfirm)
   const showsBattleWindows =
     battleState.phase === 'partyCommand' ||
     battleState.phase === 'characterCommand' ||
     battleState.phase === 'targetSelection'
   const activeCharacter = getActiveCharacter(battleState, battleState.party)
+  const activePartyListCharacter = useMemo(() => {
+    if (activeCharacter) {
+      return activeCharacter
+    }
+
+    if (battleState.phase === 'confirmActions' && !battleState.isAutoCommandConfirm) {
+      return getAlivePartyMembers(battleState.party)[battleState.activeCharacterIndex]
+    }
+
+    return undefined
+  }, [
+    activeCharacter,
+    battleState.activeCharacterIndex,
+    battleState.isAutoCommandConfirm,
+    battleState.party,
+    battleState.phase,
+  ])
 
   const enemyColumns = useMemo(() => {
     const aliveEnemies = battleState.enemies.filter((enemy) => enemy.currentHp > 0)
@@ -110,8 +136,10 @@ export function BattleScreen({ party, onBattleEnd, onEscape }: BattleScreenProps
       return
     }
 
-    const delay = battleState.executingCharacterId === undefined
-      ? 0
+    const delay = battleState.executingCharacterId === undefined && battleState.executingEnemyId === undefined
+      ? battleState.executingActionIndex === 0
+        ? BATTLE_START_DELAY_MS
+        : 0
       : battleState.lastActionDefeatedEnemy
         ? BATTLE_DEFEAT_CHAIN_INTERVAL_MS
         : BATTLE_ACTION_INTERVAL_MS
@@ -128,29 +156,8 @@ export function BattleScreen({ party, onBattleEnd, onEscape }: BattleScreenProps
   }, [
     battleState.executingActionIndex,
     battleState.executingCharacterId,
-    battleState.lastActionDefeatedEnemy,
-    battleState.phase,
-  ])
-
-  useEffect(() => {
-    if (battleState.phase !== 'enemyExecuting') {
-      return
-    }
-
-    const delay = battleState.executingEnemyId === undefined ? 0 : ENEMY_ACTION_INTERVAL_MS
-
-    actionTimerRef.current = window.setTimeout(() => {
-      setBattleState((currentState) => executeNextEnemyAction(currentState))
-    }, delay)
-
-    return () => {
-      if (actionTimerRef.current !== null) {
-        window.clearTimeout(actionTimerRef.current)
-      }
-    }
-  }, [
     battleState.executingEnemyId,
-    battleState.executingEnemyIndex,
+    battleState.lastActionDefeatedEnemy,
     battleState.phase,
   ])
 
@@ -160,21 +167,15 @@ export function BattleScreen({ party, onBattleEnd, onEscape }: BattleScreenProps
     }
 
     resultTimerRef.current = window.setTimeout(() => {
-      onBattleEnd(battleState.party, battleState.enemies)
-    }, BATTLE_ACTION_INTERVAL_MS)
+      setIsResultOverlayReady(true)
+    }, RESULT_OVERLAY_DELAY_MS)
 
     return () => {
       if (resultTimerRef.current !== null) {
         window.clearTimeout(resultTimerRef.current)
       }
     }
-  }, [
-    battleState.enemies,
-    battleState.isVictory,
-    battleState.party,
-    battleState.phase,
-    onBattleEnd,
-  ])
+  }, [battleState.isVictory, battleState.phase])
 
   useEffect(() => {
     if (battleState.phase !== 'resolving' || !battleState.isDefeat) {
@@ -281,7 +282,7 @@ export function BattleScreen({ party, onBattleEnd, onEscape }: BattleScreenProps
         damagedCharacterId={battleState.lastDamagedCharacterId}
         damageEventId={battleState.lastDamageEventId}
         actingCharacterId={isExecuting || isResolving ? battleState.executingCharacterId : undefined}
-        actingEnemyId={battleState.phase === 'enemyExecuting' || isResolving ? battleState.executingEnemyId : undefined}
+        actingEnemyId={isExecuting || isResolving ? battleState.executingEnemyId : undefined}
         showDebugInfo={isBattleDebugEnabled}
       />
 
@@ -342,7 +343,7 @@ export function BattleScreen({ party, onBattleEnd, onEscape }: BattleScreenProps
                 <li
                   className={
                     isSelectingCharacter
-                      ? character.id === activeCharacter?.id
+                      ? character.id === activePartyListCharacter?.id
                         ? 'is-active-character'
                         : 'is-inactive-character'
                       : ''
@@ -350,7 +351,7 @@ export function BattleScreen({ party, onBattleEnd, onEscape }: BattleScreenProps
                   key={character.id}
                 >
                   <span>{character.name}</span>
-                  <span className="hp-value">
+                  <span className={isCriticalHp(character) ? 'hp-value is-critical-hp' : 'hp-value'}>
                     <span className="heart-mark" aria-label="HP">
                       ♥
                     </span>
@@ -432,14 +433,15 @@ export function BattleScreen({ party, onBattleEnd, onEscape }: BattleScreenProps
         </div>
       )}
 
-      {isBattleDebugEnabled && battleState.timeline.length > 0 && (
-        <aside className="battle-timeline battle-window" aria-label="Battle Timeline">
-          <ol>
-            {battleState.timeline.map((event) => (
-              <li key={event.id}>{event.message}</li>
-            ))}
-          </ol>
-        </aside>
+      {isBattleDebugEnabled && <BattleTimeline events={battleState.timeline} />}
+
+      {battleState.phase === 'resolving' && battleState.isVictory && isResultOverlayReady && (
+        <ResultOverlay
+          party={battleState.party}
+          rewards={battleState.rewards}
+          money={money}
+          onComplete={onBattleComplete}
+        />
       )}
     </section>
   )

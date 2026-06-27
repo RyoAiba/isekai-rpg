@@ -8,7 +8,6 @@ export type BattlePhase =
   | 'targetSelection'
   | 'confirmActions'
   | 'executing'
-  | 'enemyExecuting'
   | 'resolving'
 
 export type PartyCommandType = 'fight' | 'escape' | 'auto'
@@ -21,6 +20,16 @@ export type BattleAction = {
   targetId?: number
   skillId?: string
   itemId?: string
+}
+
+export type BattleQueuedAction = BattleAction & {
+  actorSide: 'party' | 'enemy'
+  initiative: number
+}
+
+export type BattleRewards = {
+  exp: number
+  money: number
 }
 
 export type BattleTimelineEvent = {
@@ -55,11 +64,13 @@ export type BattleState = {
   selectedConfirmIndex: number
   isAutoCommandConfirm: boolean
   actions: BattleAction[]
+  actionQueue: BattleQueuedAction[]
+  rewards: BattleRewards
+  roundNumber: number
   party: Character[]
   enemies: Character[]
   timeline: BattleTimelineEvent[]
   executingActionIndex: number
-  executingEnemyIndex: number
   executingCharacterId?: number
   executingEnemyId?: number
   lastActionDefeatedEnemy: boolean

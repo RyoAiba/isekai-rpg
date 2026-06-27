@@ -1,4 +1,4 @@
-import type { ActiveEffect } from '../battle/effects/types'
+import type { ActiveEffect, AttackEffect } from '../battle/effects/types'
 import type { BattleTraits, Stats } from './stats'
 
 export type CharacterRange = 'S' | 'M' | 'L'
@@ -20,4 +20,5 @@ export type Character = {
 
 export type EnemyCharacter = Character & {
   baseExp: number
+  attackEffects?: AttackEffect[]
 }

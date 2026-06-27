@@ -1,11 +1,9 @@
-import { useEffect, useState } from 'react'
-import { enemies as initialEnemies } from './data/enemies'
+import { useEffect, useRef, useState } from 'react'
 import { party as initialParty } from './data/party'
 import { canStayAtInn, healPartyAtInn, INN_COST } from './game/inn'
 import { InputManager } from './input/InputManager'
 import { BattleScreen } from './screens/BattleScreen/BattleScreen'
 import { MainMenuScreen } from './screens/MainMenuScreen/MainMenuScreen'
-import { ResultScreen } from './screens/ResultScreen/ResultScreen'
 import { TitleScreen } from './screens/TitleScreen/TitleScreen'
 import type { Character } from './types/character'
 import type { GameScreen } from './types/game'
@@ -17,13 +15,13 @@ function cloneParty(party: Character[]) {
 }
 
 function App() {
+  const innFadeTimerRef = useRef<number | null>(null)
+  const innHealTimerRef = useRef<number | null>(null)
   const [screen, setScreen] = useState<GameScreen>('title')
   const [party, setParty] = useState<Character[]>(() => cloneParty(initialParty))
   const [money, setMoney] = useState(0)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [hasSaveData, setHasSaveData] = useState(() => hasSaveGame())
-  const [lastBattleParty, setLastBattleParty] = useState<Character[] | null>(null)
-  const [lastBattleEnemies, setLastBattleEnemies] = useState<Character[] | null>(null)
   const [isInnFadeActive, setIsInnFadeActive] = useState(false)
 
   useEffect(() => {
@@ -31,6 +29,12 @@ function App() {
 
     return () => {
       InputManager.destroy()
+      if (innFadeTimerRef.current !== null) {
+        window.clearTimeout(innFadeTimerRef.current)
+      }
+      if (innHealTimerRef.current !== null) {
+        window.clearTimeout(innHealTimerRef.current)
+      }
     }
   }, [])
 
@@ -40,8 +44,6 @@ function App() {
     setMoney(0)
     setHasSaveData(false)
     setSaveError(null)
-    setLastBattleParty(null)
-    setLastBattleEnemies(null)
     setScreen('mainMenu')
   }
 
@@ -57,31 +59,33 @@ function App() {
     setMoney(saveData.money)
     setHasSaveData(true)
     setSaveError(null)
-    setLastBattleParty(null)
-    setLastBattleEnemies(null)
     setScreen('mainMenu')
   }
 
-  const updateProgress = (nextParty: Character[], nextMoney: number) => {
-    setParty(nextParty)
-    setMoney(nextMoney)
-    setHasSaveData(true)
-  }
-
-  const stayAtInn = () => {
-    if (!canStayAtInn(money)) {
-      return false
-    }
-
-    const nextParty = healPartyAtInn(party)
-    const nextMoney = money - INN_COST
-
+  const completeBattle = (nextParty: Character[], nextMoney: number) => {
     setParty(nextParty)
     setMoney(nextMoney)
     setHasSaveData(true)
     saveGame({ party: nextParty, money: nextMoney })
+    setScreen('mainMenu')
+  }
+
+  const stayAtInn = () => {
+    if (!canStayAtInn(money) || isInnFadeActive) {
+      return false
+    }
+
     setIsInnFadeActive(true)
-    window.setTimeout(() => setIsInnFadeActive(false), 1000)
+    innHealTimerRef.current = window.setTimeout(() => {
+      const nextParty = healPartyAtInn(party)
+      const nextMoney = money - INN_COST
+
+      setParty(nextParty)
+      setMoney(nextMoney)
+      setHasSaveData(true)
+      saveGame({ party: nextParty, money: nextMoney })
+    }, 550)
+    innFadeTimerRef.current = window.setTimeout(() => setIsInnFadeActive(false), 1500)
 
     return true
   }
@@ -121,28 +125,13 @@ function App() {
       {screen === 'battle' && (
         <BattleScreen
           party={party}
-          onBattleEnd={(nextParty, nextEnemies) => {
-            setParty(nextParty)
-            setLastBattleParty(nextParty)
-            setLastBattleEnemies(nextEnemies)
-            setScreen('result')
-          }}
+          money={money}
+          onBattleComplete={completeBattle}
           onEscape={returnToMainMenu}
         />
       )}
 
       {isInnFadeActive && <div className="screen-fade-overlay is-active" aria-hidden="true" />}
-
-      {screen === 'result' && (
-        <ResultScreen
-          party={party}
-          money={money}
-          backdropParty={lastBattleParty ?? party}
-          backdropEnemies={lastBattleEnemies ?? initialEnemies}
-          onProgressUpdated={updateProgress}
-          onBackToMainMenu={() => setScreen('mainMenu')}
-        />
-      )}
     </main>
   )
 }

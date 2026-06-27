@@ -6,7 +6,7 @@ export type EffectDefinition = {
   id: string
   name: string
   category: EffectCategory
-  removeTiming: EffectRemoveTiming
+  removeTimings: EffectRemoveTiming[]
 }
 
 export type ActiveEffect = {
@@ -14,4 +14,9 @@ export type ActiveEffect = {
   remainingTurns?: number
   sourceId?: string
   stacks?: number
+}
+
+export type AttackEffect = {
+  effectId: string
+  chance: number
 }

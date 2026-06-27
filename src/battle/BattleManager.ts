@@ -1,9 +1,13 @@
-import { addEffect, hasEffect } from './effects/EffectManager'
 import { calculateDamage } from './BattleCalculator'
+import { getEffectName } from './effects/EffectDatabase'
+import { addEffect, hasEffect } from './effects/EffectManager'
+import type { AttackEffect } from './effects/types'
 import { getSpeed } from './StatCalculator'
 import type {
   BattleAction,
   BattleCommand,
+  BattleQueuedAction,
+  BattleRewards,
   BattleState,
   BattleTimelineEvent,
   ConfirmCommandType,
@@ -12,52 +16,27 @@ import type {
 import type { Character } from '../types/character'
 import { cloneCharacters } from '../utils/characterClone'
 
-type TurnQueueEntry = {
-  character: Character
-  side: 'party' | 'enemy'
-  initiative: number
+const POISON_DAMAGE = 10
+const DEFAULT_BATTLE_MONEY = 60
+
+type EnemyReward = {
+  baseExp?: number
+}
+
+type EnemyAttackEffects = {
+  attackEffects?: AttackEffect[]
 }
 
 function randomInRange(min: number, max: number) {
   return min + Math.random() * (max - min)
 }
 
-function createTurnQueue(party: Character[], enemies: Character[]): TurnQueueEntry[] {
-  const entries = [
-    ...getAlivePartyMembers(party).map((character) => ({
-      character,
-      side: 'party' as const,
-    })),
-    ...getAliveEnemies(enemies).map((character) => ({
-      character,
-      side: 'enemy' as const,
-    })),
-  ]
-
-  return entries
-    .map(({ character, side }) => {
-      const variance = character.battleTraits.initiativeVariance
-      const speed = getSpeed(character)
-      const initiative = speed * randomInRange(1 - variance, 1 + variance)
-
-      return { character, side, initiative }
-    })
-    .sort((a, b) => b.initiative - a.initiative)
+function getNextTimelineId(timeline: BattleTimelineEvent[]) {
+  return timeline.length > 0 ? Math.max(...timeline.map((event) => event.id)) + 1 : 1
 }
 
-function addTurnQueueTimeline(timeline: BattleTimelineEvent[], turnQueue: TurnQueueEntry[]) {
-  if (turnQueue.length === 0) {
-    return
-  }
-
-  timeline.push({ id: getNextTimelineId(timeline), message: '【行動順】' })
-
-  for (const entry of turnQueue) {
-    timeline.push({
-      id: getNextTimelineId(timeline),
-      message: entry.character.name + ' (' + Math.round(entry.initiative) + ')',
-    })
-  }
+function addTimeline(timeline: BattleTimelineEvent[], message: string) {
+  timeline.push({ id: getNextTimelineId(timeline), message })
 }
 
 export function createInitialBattleState(
@@ -73,11 +52,13 @@ export function createInitialBattleState(
     selectedConfirmIndex: 0,
     isAutoCommandConfirm: false,
     actions: [],
+    actionQueue: [],
+    rewards: { exp: 0, money: 0 },
+    roundNumber: 1,
     party: cloneCharacters(party),
     enemies: cloneCharacters(enemies),
     timeline: [],
     executingActionIndex: 0,
-    executingEnemyIndex: 0,
     executingCharacterId: undefined,
     executingEnemyId: undefined,
     lastActionDefeatedEnemy: false,
@@ -104,30 +85,6 @@ export function getActiveCharacter(state: BattleState, party: Character[]) {
   }
 
   return getInputParty(party)[state.activeCharacterIndex]
-}
-
-export function startCharacterCommandInput(state: BattleState): BattleState {
-  return {
-    ...state,
-    phase: 'characterCommand',
-    activeCharacterIndex: 0,
-    selectedCharacterCommandIndex: 0,
-    selectedTargetIndex: 0,
-    selectedConfirmIndex: 0,
-    isAutoCommandConfirm: false,
-    actions: [],
-    executingActionIndex: 0,
-    executingEnemyIndex: 0,
-    executingCharacterId: undefined,
-    executingEnemyId: undefined,
-    lastActionDefeatedEnemy: false,
-    lastDefeatedEnemyId: undefined,
-    lastDamagedEnemyId: undefined,
-    lastDamagedCharacterId: undefined,
-    lastDamageEventId: 0,
-    isVictory: false,
-    isDefeat: false,
-  }
 }
 
 export function getAliveEnemies(enemies: Character[]) {
@@ -171,6 +128,124 @@ function getRandomAlivePartyMember(party: Character[]) {
   return aliveParty[Math.floor(Math.random() * aliveParty.length)]
 }
 
+function createInitiative(character: Character) {
+  const variance = character.battleTraits.initiativeVariance
+  const speed = getSpeed(character)
+
+  return speed * randomInRange(1 - variance, 1 + variance)
+}
+
+function createEnemyAttackActions(enemies: Character[]): BattleQueuedAction[] {
+  return getAliveEnemies(enemies).map((enemy) => ({
+    characterId: enemy.id,
+    type: 'attack',
+    actorSide: 'enemy',
+    initiative: createInitiative(enemy),
+  }))
+}
+
+function createPartyQueuedActions(actions: BattleAction[], party: Character[]): BattleQueuedAction[] {
+  const queuedActions: BattleQueuedAction[] = []
+
+  for (const action of actions) {
+    const actor = party.find((character) => character.id === action.characterId)
+
+    if (!actor || actor.currentHp <= 0) {
+      continue
+    }
+
+    queuedActions.push({
+      ...action,
+      actorSide: 'party',
+      initiative: createInitiative(actor),
+    })
+  }
+
+  return queuedActions
+}
+
+function createTurnQueue(state: BattleState): BattleQueuedAction[] {
+  return [
+    ...createPartyQueuedActions(state.actions, state.party),
+    ...createEnemyAttackActions(state.enemies),
+  ].sort((a, b) => b.initiative - a.initiative)
+}
+
+function addTurnQueueTimeline(
+  timeline: BattleTimelineEvent[],
+  queue: BattleQueuedAction[],
+  party: Character[],
+  enemies: Character[],
+) {
+  if (queue.length === 0) {
+    return
+  }
+
+  addTimeline(timeline, '【行動順】')
+
+  for (const action of queue) {
+    const actorSource = action.actorSide === 'party' ? party : enemies
+    const actor = actorSource.find((character) => character.id === action.characterId)
+
+    if (actor) {
+      addTimeline(timeline, actor.name + ' (' + Math.round(action.initiative) + ')')
+    }
+  }
+}
+
+function calculateRewards(enemies: Character[]): BattleRewards {
+  return {
+    exp: enemies.reduce((total, enemy) => total + ((enemy as EnemyReward).baseExp ?? 0), 0),
+    money: DEFAULT_BATTLE_MONEY,
+  }
+}
+
+function applyPoisonDamageToGroup(characters: Character[], timeline: BattleTimelineEvent[]) {
+  let lastDamagedCharacterId: number | undefined
+  let hasDamage = false
+
+  const nextCharacters = characters.map((character) => {
+    if (character.currentHp <= 1 || !hasEffect(character, 'poison')) {
+      return character
+    }
+
+    const damage = Math.min(POISON_DAMAGE, character.currentHp - 1)
+    hasDamage = true
+    lastDamagedCharacterId = character.id
+    addTimeline(timeline, character.name + 'は毒で' + damage + 'ダメージを受けた')
+
+    return {
+      ...character,
+      currentHp: character.currentHp - damage,
+    }
+  })
+
+  return { nextCharacters, lastDamagedCharacterId, hasDamage }
+}
+
+function applyRoundStartEffects(state: BattleState): BattleState {
+  if (state.roundNumber <= 1) {
+    return state
+  }
+
+  const timeline = [...state.timeline]
+  addTimeline(timeline, '【ラウンド' + state.roundNumber + '】')
+
+  const partyResult = applyPoisonDamageToGroup(state.party, timeline)
+  const enemyResult = applyPoisonDamageToGroup(state.enemies, timeline)
+  const hasPoisonDamage = partyResult.hasDamage || enemyResult.hasDamage
+
+  return {
+    ...state,
+    party: partyResult.nextCharacters,
+    enemies: enemyResult.nextCharacters,
+    timeline,
+    lastDamagedCharacterId: partyResult.lastDamagedCharacterId,
+    lastDamagedEnemyId: enemyResult.lastDamagedCharacterId,
+    lastDamageEventId: hasPoisonDamage ? state.lastDamageEventId + 1 : state.lastDamageEventId,
+  }
+}
+
 export function createAutoActions(party: Character[], enemies: Character[]): BattleAction[] {
   const priorityEnemy = getPriorityEnemy(enemies)
 
@@ -179,6 +254,30 @@ export function createAutoActions(party: Character[], enemies: Character[]): Bat
     type: 'attack',
     targetId: priorityEnemy?.id,
   }))
+}
+
+export function startCharacterCommandInput(state: BattleState): BattleState {
+  return {
+    ...state,
+    phase: 'characterCommand',
+    activeCharacterIndex: 0,
+    selectedCharacterCommandIndex: 0,
+    selectedTargetIndex: 0,
+    selectedConfirmIndex: 0,
+    isAutoCommandConfirm: false,
+    actions: [],
+    actionQueue: [],
+    executingActionIndex: 0,
+    executingCharacterId: undefined,
+    executingEnemyId: undefined,
+    lastActionDefeatedEnemy: false,
+    lastDefeatedEnemyId: undefined,
+    lastDamagedEnemyId: undefined,
+    lastDamagedCharacterId: undefined,
+    lastDamageEventId: 0,
+    isVictory: false,
+    isDefeat: false,
+  }
 }
 
 export function applyPartyCommand(
@@ -225,12 +324,13 @@ export function applyCharacterCommand(
     }
   }
 
-  const nextAction: BattleAction = {
-    characterId: activeCharacter.id,
-    type: command.id,
-  }
-
-  const nextActions = [...state.actions, nextAction]
+  const nextActions = [
+    ...state.actions,
+    {
+      characterId: activeCharacter.id,
+      type: command.id,
+    },
+  ]
 
   if (state.activeCharacterIndex >= inputParty.length - 1) {
     return {
@@ -338,8 +438,8 @@ export function applyConfirmCommand(
       selectedTargetIndex: 0,
       selectedConfirmIndex: 0,
       isAutoCommandConfirm: false,
+      actionQueue: [],
       executingActionIndex: 0,
-      executingEnemyIndex: 0,
       executingCharacterId: undefined,
       executingEnemyId: undefined,
       actions: [],
@@ -354,8 +454,8 @@ export function applyConfirmCommand(
     selectedTargetIndex: 0,
     selectedConfirmIndex: 0,
     isAutoCommandConfirm: false,
+    actionQueue: [],
     executingActionIndex: 0,
-    executingEnemyIndex: 0,
     executingCharacterId: undefined,
     executingEnemyId: undefined,
     actions: state.actions.slice(0, -1),
@@ -363,15 +463,28 @@ export function applyConfirmCommand(
 }
 
 export function startBattleExecution(state: BattleState): BattleState {
+  const timelineLengthBeforeRoundStart = state.timeline.length
+  const stateAfterRoundStartEffects = applyRoundStartEffects(state)
+  const actionQueue = createTurnQueue(stateAfterRoundStartEffects)
+  const roundStartTimeline = stateAfterRoundStartEffects.timeline.slice(timelineLengthBeforeRoundStart)
   const timeline = [...state.timeline]
-  addTurnQueueTimeline(timeline, createTurnQueue(state.party, state.enemies))
+
+  addTurnQueueTimeline(
+    timeline,
+    actionQueue,
+    stateAfterRoundStartEffects.party,
+    stateAfterRoundStartEffects.enemies,
+  )
+  for (const event of roundStartTimeline) {
+    addTimeline(timeline, event.message)
+  }
 
   return {
-    ...state,
+    ...stateAfterRoundStartEffects,
     phase: 'executing',
     isAutoCommandConfirm: false,
+    actionQueue,
     executingActionIndex: 0,
-    executingEnemyIndex: 0,
     executingCharacterId: undefined,
     executingEnemyId: undefined,
     lastActionDefeatedEnemy: false,
@@ -396,58 +509,48 @@ function resetPlayerTurn(state: BattleState): BattleState {
     selectedConfirmIndex: 0,
     isAutoCommandConfirm: false,
     actions: [],
+    actionQueue: [],
     executingActionIndex: 0,
-    executingEnemyIndex: 0,
     executingCharacterId: undefined,
     executingEnemyId: undefined,
     lastActionDefeatedEnemy: false,
     lastDefeatedEnemyId: undefined,
     lastDamagedEnemyId: undefined,
     lastDamagedCharacterId: undefined,
-    lastDamageEventId: 0,
+    roundNumber: state.roundNumber + 1,
     isVictory: false,
     isDefeat: false,
   }
 }
 
-function startEnemyTurn(state: BattleState): BattleState {
-  return {
-    ...state,
-    phase: 'enemyExecuting',
-    activeCharacterIndex: 0,
-    selectedPartyCommandIndex: 0,
-    selectedCharacterCommandIndex: 0,
-    selectedTargetIndex: 0,
-    selectedConfirmIndex: 0,
-    isAutoCommandConfirm: false,
-    actions: [],
-    executingActionIndex: 0,
-    executingEnemyIndex: 0,
-    executingCharacterId: undefined,
-    executingEnemyId: undefined,
-    lastActionDefeatedEnemy: false,
-    lastDefeatedEnemyId: undefined,
-    lastDamagedEnemyId: undefined,
-    lastDamagedCharacterId: undefined,
-  }
-}
+function applyAttackEffects(
+  attacker: Character,
+  target: Character,
+  timeline: BattleTimelineEvent[],
+) {
+  let nextTarget = target
+  const attackEffects = (attacker as EnemyAttackEffects).attackEffects ?? []
 
-function getNextTimelineId(timeline: BattleTimelineEvent[]) {
-  return timeline.length > 0 ? Math.max(...timeline.map((event) => event.id)) + 1 : 1
-}
+  for (const attackEffect of attackEffects) {
+    if (nextTarget.currentHp <= 0 || Math.random() > attackEffect.chance) {
+      continue
+    }
 
-export function executeNextBattleAction(state: BattleState): BattleState {
-  const action = state.actions[state.executingActionIndex]
+    if (hasEffect(nextTarget, attackEffect.effectId)) {
+      addTimeline(timeline, nextTarget.name + 'はすでに' + getEffectName(attackEffect.effectId) + '状態だった')
+      continue
+    }
 
-  if (!action) {
-    return getAliveEnemies(state.enemies).length > 0 ? startEnemyTurn(state) : resetPlayerTurn(state)
+    nextTarget = addEffect(nextTarget, attackEffect.effectId, { sourceId: String(attacker.id) })
+    addTimeline(timeline, nextTarget.name + 'は' + getEffectName(attackEffect.effectId) + 'になった')
   }
 
+  return nextTarget
+}
+
+function executePartyAction(state: BattleState, action: BattleQueuedAction): BattleState {
   const nextEnemies = cloneCharacters(state.enemies)
   const timeline: BattleTimelineEvent[] = [...state.timeline]
-  const addTimeline = (message: string) => {
-    timeline.push({ id: getNextTimelineId(timeline), message })
-  }
   const attacker = state.party.find((character) => character.id === action.characterId)
 
   if (!attacker || attacker.currentHp <= 0) {
@@ -464,15 +567,15 @@ export function executeNextBattleAction(state: BattleState): BattleState {
   let damagedEnemyId: number | undefined
 
   if (action.type === 'defense') {
-    addTimeline(attacker.name + 'は身を守った')
+    addTimeline(timeline, attacker.name + 'は身を守った')
   } else if (action.type !== 'attack') {
-    addTimeline(attacker.name + 'はまだ使えない行動を選んだ')
+    addTimeline(timeline, attacker.name + 'はまだ使えない行動を選んだ')
   } else {
     const target = resolveActionTarget(nextEnemies, action.targetId)
     const targetIndex = nextEnemies.findIndex((enemy) => enemy.id === target?.id)
 
     if (targetIndex < 0 || !target) {
-      addTimeline(attacker.name + 'の攻撃対象はいなかった')
+      addTimeline(timeline, attacker.name + 'の攻撃対象はいなかった')
     } else {
       const { damage } = calculateDamage({ attacker, defender: target })
       const nextHp = Math.max(target.currentHp - damage, 0)
@@ -486,14 +589,14 @@ export function executeNextBattleAction(state: BattleState): BattleState {
         currentHp: nextHp,
       }
 
-      addTimeline(attacker.name + 'は' + target.name + 'を攻撃した。' + damage + 'ダメージ' + defeatMessage)
+      addTimeline(timeline, attacker.name + 'は' + target.name + 'を攻撃した。' + damage + 'ダメージ' + defeatMessage)
     }
   }
 
   const isVictory = checkVictory(nextEnemies)
 
   if (isVictory) {
-    addTimeline('敵を全滅させた！')
+    addTimeline(timeline, '敵を全滅させた！')
   }
 
   return {
@@ -514,30 +617,33 @@ export function executeNextBattleAction(state: BattleState): BattleState {
     lastDamagedCharacterId: undefined,
     lastDamageEventId: damagedEnemyId === undefined ? state.lastDamageEventId : state.lastDamageEventId + 1,
     actions: isVictory ? [] : state.actions,
+    actionQueue: isVictory ? [] : state.actionQueue,
     enemies: nextEnemies,
+    rewards: isVictory ? calculateRewards(state.enemies) : state.rewards,
     timeline,
     isVictory,
     isDefeat: false,
   }
 }
 
-export function executeNextEnemyAction(state: BattleState): BattleState {
-  const aliveEnemies = getAliveEnemies(state.enemies)
-  const enemy = aliveEnemies[state.executingEnemyIndex]
+function executeEnemyAction(state: BattleState, action: BattleQueuedAction): BattleState {
+  const enemy = state.enemies.find((candidate) => candidate.id === action.characterId)
+  const timeline: BattleTimelineEvent[] = [...state.timeline]
 
-  if (!enemy) {
-    return resetPlayerTurn(state)
+  if (!enemy || enemy.currentHp <= 0) {
+    return {
+      ...state,
+      executingActionIndex: state.executingActionIndex + 1,
+      executingEnemyId: undefined,
+      timeline,
+    }
   }
 
   const nextParty = cloneCharacters(state.party)
-  const timeline: BattleTimelineEvent[] = [...state.timeline]
-  const addTimeline = (message: string) => {
-    timeline.push({ id: getNextTimelineId(timeline), message })
-  }
   const target = getRandomAlivePartyMember(nextParty)
 
   if (!target) {
-    addTimeline('味方は全滅した')
+    addTimeline(timeline, '味方は全滅した')
 
     return {
       ...state,
@@ -545,6 +651,7 @@ export function executeNextEnemyAction(state: BattleState): BattleState {
       party: nextParty,
       timeline,
       executingEnemyId: enemy.id,
+      executingCharacterId: undefined,
       lastDamagedEnemyId: undefined,
       lastDamagedCharacterId: undefined,
       isVictory: false,
@@ -562,32 +669,23 @@ export function executeNextEnemyAction(state: BattleState): BattleState {
     currentHp: nextHp,
   }
 
-  addTimeline(enemy.name + 'の攻撃')
-  addTimeline(enemy.name + 'は' + target.name + 'に' + damage + 'ダメージ' + defeatedMessage)
-
-  if (enemy.id === 101 && nextHp > 0) {
-    if (hasEffect(nextTarget, 'poison')) {
-      addTimeline(target.name + 'はすでに毒状態だった')
-    } else {
-      nextTarget = addEffect(nextTarget, 'poison', { sourceId: String(enemy.id) })
-      addTimeline(target.name + 'は毒になった')
-    }
-  }
-
+  addTimeline(timeline, enemy.name + 'の攻撃')
+  addTimeline(timeline, enemy.name + 'は' + target.name + 'に' + damage + 'ダメージ' + defeatedMessage)
+  nextTarget = applyAttackEffects(enemy, nextTarget, timeline)
   nextParty[targetIndex] = nextTarget
 
   const isDefeat = checkDefeat(nextParty)
 
   if (isDefeat) {
-    addTimeline('味方は全滅した')
+    addTimeline(timeline, '味方は全滅した')
   }
 
   return {
     ...state,
-    phase: isDefeat ? 'resolving' : 'enemyExecuting',
+    phase: isDefeat ? 'resolving' : 'executing',
     party: nextParty,
     timeline,
-    executingEnemyIndex: state.executingEnemyIndex + 1,
+    executingActionIndex: state.executingActionIndex + 1,
     executingEnemyId: enemy.id,
     executingCharacterId: undefined,
     lastActionDefeatedEnemy: false,
@@ -598,6 +696,18 @@ export function executeNextEnemyAction(state: BattleState): BattleState {
     isVictory: false,
     isDefeat,
   }
+}
+
+export function executeNextBattleAction(state: BattleState): BattleState {
+  const action = state.actionQueue[state.executingActionIndex]
+
+  if (!action) {
+    return resetPlayerTurn(state)
+  }
+
+  return action.actorSide === 'party'
+    ? executePartyAction(state, action)
+    : executeEnemyAction(state, action)
 }
 
 export function moveSelection(

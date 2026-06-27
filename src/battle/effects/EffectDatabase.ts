@@ -5,7 +5,7 @@ const effectDefinitions: EffectDefinition[] = [
     id: 'poison',
     name: '毒',
     category: 'state',
-    removeTiming: 'item',
+    removeTimings: ['inn', 'item'],
   },
 ]
 

@@ -21,6 +21,7 @@ export const enemies: EnemyCharacter[] = [
     range: 'S',
     position: 'front',
     baseExp: 80,
+    attackEffects: [{ effectId: 'poison', chance: 1 }],
   },
   {
     id: 102,

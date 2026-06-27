@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { getMaxHp } from '../../battle/StatCalculator'
 import { InputManager } from '../../input/InputManager'
 import type { Character } from '../../types/character'
+import { isCriticalHp } from '../../utils/hp'
 
 type MainMenuScreenProps = {
   money: number
@@ -107,7 +108,7 @@ export function MainMenuScreen({
           {party.map((character) => (
             <li key={character.id}>
               <span>{character.name}</span>
-              <span className="hp-value">
+              <span className={isCriticalHp(character) ? 'hp-value is-critical-hp' : 'hp-value'}>
                 <span className="heart-mark" aria-label="HP">
                   ♥
                 </span>

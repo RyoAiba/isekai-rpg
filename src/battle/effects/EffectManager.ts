@@ -1,5 +1,5 @@
 import { getEffectDefinition } from './EffectDatabase'
-import type { ActiveEffect } from './types'
+import type { ActiveEffect, EffectRemoveTiming } from './types'
 import type { Character } from '../../types/character'
 
 type AddEffectOptions = Omit<ActiveEffect, 'effectId'>
@@ -40,4 +40,14 @@ export function getActiveEffectDefinitions(character: Character) {
   return character.activeEffects
     .map((effect) => getEffectDefinition(effect.effectId))
     .filter((definition) => definition !== undefined)
+}
+
+export function removeEffectsByTiming(character: Character, timing: EffectRemoveTiming): Character {
+  return {
+    ...character,
+    activeEffects: character.activeEffects.filter((effect) => {
+      const definition = getEffectDefinition(effect.effectId)
+      return !definition?.removeTimings.includes(timing)
+    }),
+  }
 }

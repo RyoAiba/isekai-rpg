@@ -1,3 +1,4 @@
+import { removeEffectsByTiming } from '../battle/effects/EffectManager'
 import { getMaxHp } from '../battle/StatCalculator'
 import type { Character } from '../types/character'
 
@@ -9,7 +10,7 @@ export function canStayAtInn(money: number) {
 
 export function healPartyAtInn(party: Character[]) {
   return party.map((character) => ({
-    ...character,
+    ...removeEffectsByTiming(character, 'inn'),
     currentHp: getMaxHp(character),
   }))
 }

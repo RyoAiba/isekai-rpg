@@ -1,1 +1,1 @@
-export type GameScreen = 'title' | 'mainMenu' | 'battle' | 'result'
+export type GameScreen = 'title' | 'mainMenu' | 'battle'
