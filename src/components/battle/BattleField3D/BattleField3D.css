@@ -1,0 +1,13 @@
+.battle-field-3d {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: #9ca8aa;
+}
+
+.battle-field-3d canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}

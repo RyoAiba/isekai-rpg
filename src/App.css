@@ -165,17 +165,19 @@ button.is-selected {
   position: relative;
   min-height: 100vh;
   overflow: hidden;
-  background: #3f4d3f;
+  background: #0f1813;
   color: #fff;
   font-weight: 700;
 }
 
 .battle-field {
   position: relative;
+  z-index: 1;
   min-height: 100vh;
   padding: 112px 40px 176px;
   box-sizing: border-box;
-  background: #3f4d3f;
+  background: transparent;
+  pointer-events: none;
 }
 
 .battle-side {
@@ -330,6 +332,7 @@ button.is-selected {
   position: absolute;
   top: 28px;
   right: 28px;
+  z-index: 3;
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -345,7 +348,18 @@ button.is-selected {
   width: 100px;
 }
 
+.battle-camera-tools {
+  left: 20px;
+  top: 20px;
+  z-index: 5;
+  display: flex;
+  gap: 6px;
+  opacity: 0.82;
+  font-size: 0.6rem;
+}
+
 .battle-command-window button,
+.battle-camera-tools button,
 .enemy-list-window button,
 .battle-confirm-window button {
   border: 0;
@@ -357,6 +371,7 @@ button.is-selected {
 }
 
 .battle-command-window button.is-selected,
+.battle-camera-tools button.is-selected,
 .enemy-list-window button.is-selected,
 .battle-confirm-window button.is-selected {
   background: rgba(255, 255, 255, 0.18);
@@ -372,6 +387,7 @@ button.is-selected {
 .enemy-list-window {
   left: 28px;
   bottom: 28px;
+  z-index: 3;
   display: grid;
   grid-template-columns: repeat(2, var(--enemy-list-column-width, 9em));
   gap: 24px;
@@ -584,7 +600,7 @@ button.is-selected {
 }
 
 .portrait-placeholder.is-level-up {
-  animation: level-up-bounce 900ms ease-in-out infinite;
+  animation: level-up-bounce 900ms ease-in-out;
 }
 
 .result-character-info {
@@ -674,24 +690,19 @@ button.is-selected {
   top: 50%;
   display: grid;
   gap: 8px;
-  width: min(58vw, 560px);
+  width: min(58vw, 360px);
   transform: translate(-50%, -50%);
   z-index: 3;
   border: 3px solid var(--jrpg-frame-color);
   background: rgba(0, 0, 0, 0.78);
   color: #fff;
   font: inherit;
-  font-size: clamp(1.6rem, 4vw, 3rem);
+  font-size: clamp(1rem, 2vw, 1.5rem);
+  font-weight: normal;
   line-height: 1.15;
   text-align: center;
   text-shadow: 2px 2px 0 #111;
 }
-
-.result-money-window strong {
-  color: #fff;
-  font-weight: 700;
-}
-
 
 @keyframes screen-fade-pulse {
   0% {

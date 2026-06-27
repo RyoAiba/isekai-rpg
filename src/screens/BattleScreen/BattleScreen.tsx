@@ -20,6 +20,10 @@ import {
   setSelectedTarget,
 } from '../../battle/BattleManager'
 import { BattleField } from '../../components/BattleField/BattleField'
+import {
+  BattleField3D,
+  type BattleField3DCameraMode,
+} from '../../components/battle/BattleField3D/BattleField3D'
 import { BattleTimeline } from '../../components/BattleTimeline/BattleTimeline'
 import { ResultOverlay } from '../../components/ResultOverlay/ResultOverlay'
 import {
@@ -50,6 +54,7 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
   const actionTimerRef = useRef<number | null>(null)
   const [battleState, setBattleState] = useState(() => createInitialBattleState(initialEnemies, party))
   const [isResultOverlayReady, setIsResultOverlayReady] = useState(false)
+  const [fieldCameraMode, setFieldCameraMode] = useState<BattleField3DCameraMode>('commandView')
   const isExecuting = battleState.phase === 'executing'
   const isResolving = battleState.phase === 'resolving'
   const isSelectingCharacter =
@@ -272,6 +277,21 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
         battleState.phase === 'targetSelection' ? ' is-target-selecting' : ''
       }`}
     >
+      <BattleField3D cameraMode={fieldCameraMode} />
+
+      <div className="battle-camera-tools battle-window" aria-label="3Dカメラ確認用">
+        {(['commandView', 'actionView'] as BattleField3DCameraMode[]).map((cameraMode) => (
+          <button
+            className={fieldCameraMode === cameraMode ? 'is-selected' : ''}
+            type="button"
+            key={cameraMode}
+            onClick={() => setFieldCameraMode(cameraMode)}
+          >
+            {cameraMode}
+          </button>
+        ))}
+      </div>
+
       <BattleField
         party={battleState.party}
         enemies={battleState.enemies}
