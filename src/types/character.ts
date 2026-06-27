@@ -1,4 +1,5 @@
-import type { BattleTraits, Buff, State, Stats } from './stats'
+import type { ActiveEffect } from '../battle/effects/types'
+import type { BattleTraits, Stats } from './stats'
 
 export type CharacterRange = 'S' | 'M' | 'L'
 
@@ -12,8 +13,7 @@ export type Character = {
   currentHp: number
   baseStats: Stats
   battleTraits: BattleTraits
-  buffs: Buff[]
-  states: State[]
+  activeEffects: ActiveEffect[]
   range: CharacterRange
   position: CharacterPosition
 }

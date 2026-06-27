@@ -1,0 +1,17 @@
+export type EffectCategory = 'buff' | 'state'
+
+export type EffectRemoveTiming = 'battleEnd' | 'turnEnd' | 'inn' | 'item' | 'never'
+
+export type EffectDefinition = {
+  id: string
+  name: string
+  category: EffectCategory
+  removeTiming: EffectRemoveTiming
+}
+
+export type ActiveEffect = {
+  effectId: string
+  remainingTurns?: number
+  sourceId?: string
+  stacks?: number
+}

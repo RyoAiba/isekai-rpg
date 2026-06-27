@@ -1,3 +1,4 @@
+import { getActiveEffectDefinitions } from '../../battle/effects/EffectManager'
 import { getMaxHp } from '../../battle/StatCalculator'
 import type { Character } from '../../types/character'
 
@@ -13,6 +14,14 @@ type BattleFieldProps = {
   actingCharacterId?: number
   actingEnemyId?: number
   showDebugInfo?: boolean
+}
+
+function getDebugInfo(character: Character, options: { showHp?: boolean } = {}) {
+  const effectNames = getActiveEffectDefinitions(character).map((effect) => effect.name)
+  const effectText = effectNames.length > 0 ? effectNames.join('・') : 'なし'
+  const hpText = options.showHp ? ' HP ' + character.currentHp + '/' + getMaxHp(character) : ''
+
+  return character.range + ' / ' + effectText + hpText
 }
 
 export function BattleField({
@@ -64,7 +73,7 @@ export function BattleField({
               <span>{enemy.name}</span>
               {showDebugInfo && (
                 <small className="unit-debug-info">
-                  {enemy.range} HP {enemy.currentHp}/{getMaxHp(enemy)}
+                  {getDebugInfo(enemy, { showHp: true })}
                 </small>
               )}
             </div>
@@ -91,7 +100,7 @@ export function BattleField({
               key={character.id + '-' + (character.id === damagedCharacterId ? damageEventId : 0)}
             >
               <span>{character.name}</span>
-              {showDebugInfo && <small className="unit-debug-info">{character.range}</small>}
+              {showDebugInfo && <small className="unit-debug-info">{getDebugInfo(character)}</small>}
             </div>
           )
         })}

@@ -6,8 +6,7 @@ export function cloneCharacter(character: Character): Character {
     ...character,
     baseStats: getStatsSnapshot(character),
     battleTraits: { ...character.battleTraits },
-    buffs: [...character.buffs],
-    states: [...character.states],
+    activeEffects: character.activeEffects.map((effect) => ({ ...effect })),
   }
 }
 

@@ -1,3 +1,4 @@
+import { addEffect, hasEffect } from './effects/EffectManager'
 import { calculateDamage } from './BattleCalculator'
 import { getSpeed } from './StatCalculator'
 import type {
@@ -556,13 +557,24 @@ export function executeNextEnemyAction(state: BattleState): BattleState {
   const nextHp = Math.max(target.currentHp - damage, 0)
   const defeatedMessage = nextHp === 0 ? '。' + target.name + 'は戦闘不能になった' : ''
 
-  nextParty[targetIndex] = {
+  let nextTarget = {
     ...target,
     currentHp: nextHp,
   }
 
   addTimeline(enemy.name + 'の攻撃')
   addTimeline(enemy.name + 'は' + target.name + 'に' + damage + 'ダメージ' + defeatedMessage)
+
+  if (enemy.id === 101 && nextHp > 0) {
+    if (hasEffect(nextTarget, 'poison')) {
+      addTimeline(target.name + 'はすでに毒状態だった')
+    } else {
+      nextTarget = addEffect(nextTarget, 'poison', { sourceId: String(enemy.id) })
+      addTimeline(target.name + 'は毒になった')
+    }
+  }
+
+  nextParty[targetIndex] = nextTarget
 
   const isDefeat = checkDefeat(nextParty)
 

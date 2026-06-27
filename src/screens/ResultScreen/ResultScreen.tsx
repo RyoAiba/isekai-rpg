@@ -80,8 +80,7 @@ function toSavedParty(resultCharacters: ResultCharacter[]): Character[] {
     currentHp: character.currentHp,
     baseStats: getStatsSnapshot(character),
     battleTraits: { ...character.battleTraits },
-    buffs: [...character.buffs],
-    states: [...character.states],
+    activeEffects: character.activeEffects.map((effect) => ({ ...effect })),
     range: character.range,
     position: character.position,
   }))

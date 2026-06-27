@@ -1,5 +1,6 @@
 import type { Character } from '../types/character'
-import type { BattleTraits, Buff, State, Stats } from '../types/stats'
+import type { ActiveEffect } from '../battle/effects/types'
+import type { BattleTraits, Stats } from '../types/stats'
 
 type LegacyCharacter = Partial<Character> & {
   hp?: number
@@ -11,14 +12,28 @@ type LegacyCharacter = Partial<Character> & {
   technique?: number
   speed?: number
   battleTraits?: Partial<BattleTraits>
-  buffs?: Buff[]
-  states?: State[]
+  activeEffects?: ActiveEffect[]
+  buffs?: { id: string }[]
+  states?: { id: string }[]
   baseStats?: Partial<Stats>
   currentHp?: number
 }
 
 function toNumber(value: unknown, fallback: number) {
   return typeof value === 'number' ? value : fallback
+}
+
+function normalizeActiveEffects(character: LegacyCharacter): ActiveEffect[] {
+  if (Array.isArray(character.activeEffects)) {
+    return character.activeEffects.map((effect) => ({ ...effect }))
+  }
+
+  const legacyEffects = [
+    ...(Array.isArray(character.buffs) ? character.buffs : []),
+    ...(Array.isArray(character.states) ? character.states : []),
+  ]
+
+  return legacyEffects.map((effect) => ({ effectId: effect.id }))
 }
 
 export function normalizeCharacter(character: LegacyCharacter): Character {
@@ -49,8 +64,7 @@ export function normalizeCharacter(character: LegacyCharacter): Character {
     battleTraits: {
       initiativeVariance: toNumber(character.battleTraits?.initiativeVariance, 0),
     },
-    buffs: Array.isArray(character.buffs) ? character.buffs : [],
-    states: Array.isArray(character.states) ? character.states : [],
+    activeEffects: normalizeActiveEffects(character),
     range: character.range ?? 'S',
     position: character.position ?? 'front',
   }
