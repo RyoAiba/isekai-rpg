@@ -1,4 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  getDirectDefense,
+  getPower,
+  getStatsSnapshot,
+  getStatsWithGains,
+  getTechnique,
+} from '../../battle/StatCalculator'
 import { BattleField } from '../../components/BattleField/BattleField'
 import { enemies } from '../../data/enemies'
 import { InputManager } from '../../input/InputManager'
@@ -49,13 +56,15 @@ function buildResultCharacters(party: Character[]): ResultCharacter[] {
       ...character,
       level: character.level + levelUpCount,
       exp: nextExp,
-      hp: gains ? character.hp + gains.hp : character.hp,
-      maxHp: gains ? character.maxHp + gains.hp : character.maxHp,
-      power: gains ? character.power + gains.power : character.power,
-      directDefense: gains
-        ? character.directDefense + gains.directDefense
-        : character.directDefense,
-      technique: gains ? character.technique + gains.technique : character.technique,
+      currentHp: gains ? character.currentHp + gains.hp : character.currentHp,
+      baseStats: gains
+        ? getStatsWithGains(character, {
+          maxHp: gains.hp,
+          power: gains.power,
+          directDefense: gains.directDefense,
+          technique: gains.technique,
+        })
+        : getStatsSnapshot(character),
       levelUpCount,
       gains,
     }
@@ -68,11 +77,11 @@ function toSavedParty(resultCharacters: ResultCharacter[]): Character[] {
     name: character.name,
     level: character.level,
     exp: character.exp,
-    hp: character.hp,
-    maxHp: character.maxHp,
-    power: character.power,
-    directDefense: character.directDefense,
-    technique: character.technique,
+    currentHp: character.currentHp,
+    baseStats: getStatsSnapshot(character),
+    battleTraits: { ...character.battleTraits },
+    buffs: [...character.buffs],
+    states: [...character.states],
     range: character.range,
     position: character.position,
   }))
@@ -178,7 +187,7 @@ export function ResultScreen({
                 <dl className="result-stats">
                   <div>
                     <dt>力</dt>
-                    <dd>{renderStatValue(character, 'power', character.power)}</dd>
+                    <dd>{renderStatValue(character, 'power', getPower(character))}</dd>
                   </div>
                   <div>
                     <dt>直守</dt>
@@ -186,14 +195,14 @@ export function ResultScreen({
                       {renderStatValue(
                         character,
                         'directDefense',
-                        character.directDefense,
+                        getDirectDefense(character),
                       )}
                     </dd>
                   </div>
                   <div>
                     <dt>技</dt>
                     <dd>
-                      {renderStatValue(character, 'technique', character.technique)}
+                      {renderStatValue(character, 'technique', getTechnique(character))}
                     </dd>
                   </div>
                   <div>
@@ -202,7 +211,7 @@ export function ResultScreen({
                         ♥
                       </span>
                     </dt>
-                    <dd>{renderStatValue(character, 'hp', character.hp)}</dd>
+                    <dd>{renderStatValue(character, 'hp', character.currentHp)}</dd>
                   </div>
                 </dl>
 

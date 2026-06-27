@@ -1,4 +1,5 @@
 import { calculateDamage } from './BattleCalculator'
+import { getSpeed } from './StatCalculator'
 import type {
   BattleAction,
   BattleCommand,
@@ -8,9 +9,54 @@ import type {
   PartyCommandType,
 } from '../types/battle'
 import type { Character } from '../types/character'
+import { cloneCharacters } from '../utils/characterClone'
 
-function cloneCharacters(characters: Character[]) {
-  return characters.map((character) => ({ ...character }))
+type TurnQueueEntry = {
+  character: Character
+  side: 'party' | 'enemy'
+  initiative: number
+}
+
+function randomInRange(min: number, max: number) {
+  return min + Math.random() * (max - min)
+}
+
+function createTurnQueue(party: Character[], enemies: Character[]): TurnQueueEntry[] {
+  const entries = [
+    ...getAlivePartyMembers(party).map((character) => ({
+      character,
+      side: 'party' as const,
+    })),
+    ...getAliveEnemies(enemies).map((character) => ({
+      character,
+      side: 'enemy' as const,
+    })),
+  ]
+
+  return entries
+    .map(({ character, side }) => {
+      const variance = character.battleTraits.initiativeVariance
+      const speed = getSpeed(character)
+      const initiative = speed * randomInRange(1 - variance, 1 + variance)
+
+      return { character, side, initiative }
+    })
+    .sort((a, b) => b.initiative - a.initiative)
+}
+
+function addTurnQueueTimeline(timeline: BattleTimelineEvent[], turnQueue: TurnQueueEntry[]) {
+  if (turnQueue.length === 0) {
+    return
+  }
+
+  timeline.push({ id: getNextTimelineId(timeline), message: '【行動順】' })
+
+  for (const entry of turnQueue) {
+    timeline.push({
+      id: getNextTimelineId(timeline),
+      message: entry.character.name + ' (' + Math.round(entry.initiative) + ')',
+    })
+  }
 }
 
 export function createInitialBattleState(
@@ -44,7 +90,7 @@ export function createInitialBattleState(
 }
 
 export function getAlivePartyMembers(party: Character[]) {
-  return party.filter((character) => character.hp > 0)
+  return party.filter((character) => character.currentHp > 0)
 }
 
 function getInputParty(party: Character[]) {
@@ -84,22 +130,22 @@ export function startCharacterCommandInput(state: BattleState): BattleState {
 }
 
 export function getAliveEnemies(enemies: Character[]) {
-  return enemies.filter((enemy) => enemy.hp > 0)
+  return enemies.filter((enemy) => enemy.currentHp > 0)
 }
 
 export function checkVictory(enemies: Character[]) {
-  return enemies.every((enemy) => enemy.hp <= 0)
+  return enemies.every((enemy) => enemy.currentHp <= 0)
 }
 
 export function checkDefeat(party: Character[]) {
-  return party.every((character) => character.hp <= 0)
+  return party.every((character) => character.currentHp <= 0)
 }
 
 function getPriorityEnemy(enemies: Character[]) {
   const aliveFrontEnemies = enemies.filter(
-    (enemy) => enemy.hp > 0 && enemy.position === 'front',
+    (enemy) => enemy.currentHp > 0 && enemy.position === 'front',
   )
-  const aliveBackEnemies = enemies.filter((enemy) => enemy.hp > 0 && enemy.position === 'back')
+  const aliveBackEnemies = enemies.filter((enemy) => enemy.currentHp > 0 && enemy.position === 'back')
 
   return [...aliveFrontEnemies].reverse()[0] ?? [...aliveBackEnemies].reverse()[0]
 }
@@ -107,7 +153,7 @@ function getPriorityEnemy(enemies: Character[]) {
 function resolveActionTarget(enemies: Character[], targetId?: number) {
   const selectedTarget = enemies.find((enemy) => enemy.id === targetId)
 
-  if (selectedTarget && selectedTarget.hp > 0) {
+  if (selectedTarget && selectedTarget.currentHp > 0) {
     return selectedTarget
   }
 
@@ -211,7 +257,7 @@ export function applyTargetSelection(
   const inputParty = getInputParty(party)
   const activeCharacter = inputParty[state.activeCharacterIndex]
 
-  if (!activeCharacter || !target || target.hp <= 0) {
+  if (!activeCharacter || !target || target.currentHp <= 0) {
     return state
   }
 
@@ -316,6 +362,9 @@ export function applyConfirmCommand(
 }
 
 export function startBattleExecution(state: BattleState): BattleState {
+  const timeline = [...state.timeline]
+  addTurnQueueTimeline(timeline, createTurnQueue(state.party, state.enemies))
+
   return {
     ...state,
     phase: 'executing',
@@ -329,6 +378,7 @@ export function startBattleExecution(state: BattleState): BattleState {
     lastDamagedEnemyId: undefined,
     lastDamagedCharacterId: undefined,
     selectedConfirmIndex: 0,
+    timeline,
     isVictory: false,
     isDefeat: false,
   }
@@ -399,7 +449,7 @@ export function executeNextBattleAction(state: BattleState): BattleState {
   }
   const attacker = state.party.find((character) => character.id === action.characterId)
 
-  if (!attacker || attacker.hp <= 0) {
+  if (!attacker || attacker.currentHp <= 0) {
     return {
       ...state,
       executingActionIndex: state.executingActionIndex + 1,
@@ -424,7 +474,7 @@ export function executeNextBattleAction(state: BattleState): BattleState {
       addTimeline(attacker.name + 'の攻撃対象はいなかった')
     } else {
       const { damage } = calculateDamage({ attacker, defender: target })
-      const nextHp = Math.max(target.hp - damage, 0)
+      const nextHp = Math.max(target.currentHp - damage, 0)
       defeatedEnemyThisAction = nextHp === 0
       defeatedEnemyId = defeatedEnemyThisAction ? target.id : undefined
       damagedEnemyId = target.id
@@ -432,7 +482,7 @@ export function executeNextBattleAction(state: BattleState): BattleState {
 
       nextEnemies[targetIndex] = {
         ...target,
-        hp: nextHp,
+        currentHp: nextHp,
       }
 
       addTimeline(attacker.name + 'は' + target.name + 'を攻撃した。' + damage + 'ダメージ' + defeatMessage)
@@ -503,12 +553,12 @@ export function executeNextEnemyAction(state: BattleState): BattleState {
 
   const targetIndex = nextParty.findIndex((character) => character.id === target.id)
   const { damage } = calculateDamage({ attacker: enemy, defender: target })
-  const nextHp = Math.max(target.hp - damage, 0)
+  const nextHp = Math.max(target.currentHp - damage, 0)
   const defeatedMessage = nextHp === 0 ? '。' + target.name + 'は戦闘不能になった' : ''
 
   nextParty[targetIndex] = {
     ...target,
-    hp: nextHp,
+    currentHp: nextHp,
   }
 
   addTimeline(enemy.name + 'の攻撃')

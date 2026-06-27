@@ -1,3 +1,4 @@
+import { getMaxHp } from '../../battle/StatCalculator'
 import type { Character } from '../../types/character'
 
 type BattleFieldProps = {
@@ -28,7 +29,7 @@ export function BattleField({
   showDebugInfo = false,
 }: BattleFieldProps) {
   const visibleEnemies = enemies.filter(
-    (enemy) => enemy.hp > 0 || enemy.id === defeatedEnemyId,
+    (enemy) => enemy.currentHp > 0 || enemy.id === defeatedEnemyId,
   )
   const orderedEnemies = [
     ...visibleEnemies.filter((enemy) => enemy.position === 'back'),
@@ -63,7 +64,7 @@ export function BattleField({
               <span>{enemy.name}</span>
               {showDebugInfo && (
                 <small className="unit-debug-info">
-                  {enemy.range} HP {enemy.hp}/{enemy.maxHp}
+                  {enemy.range} HP {enemy.currentHp}/{getMaxHp(enemy)}
                 </small>
               )}
             </div>

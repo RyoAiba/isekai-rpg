@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { getMaxHp } from '../../battle/StatCalculator'
 import { InputManager } from '../../input/InputManager'
 import type { Character } from '../../types/character'
 
@@ -110,9 +111,9 @@ export function MainMenuScreen({
                 <span className="heart-mark" aria-label="HP">
                   ♥
                 </span>
-                <span>{character.hp}</span>
+                <span>{character.currentHp}</span>
                 <span>/</span>
-                <span>{character.maxHp}</span>
+                <span>{getMaxHp(character)}</span>
               </span>
             </li>
           ))}

@@ -1,3 +1,5 @@
+import type { BattleTraits, Buff, State, Stats } from './stats'
+
 export type CharacterRange = 'S' | 'M' | 'L'
 
 export type CharacterPosition = 'front' | 'back'
@@ -7,11 +9,11 @@ export type Character = {
   name: string
   level: number
   exp: number
-  hp: number
-  maxHp: number
-  power: number
-  directDefense: number
-  technique: number
+  currentHp: number
+  baseStats: Stats
+  battleTraits: BattleTraits
+  buffs: Buff[]
+  states: State[]
   range: CharacterRange
   position: CharacterPosition
 }

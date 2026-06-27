@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
+import { getMaxHp } from '../../battle/StatCalculator'
 import {
   applyCharacterCommand,
   applyConfirmCommand,
@@ -53,7 +54,7 @@ export function BattleScreen({ party, onBattleEnd, onEscape }: BattleScreenProps
   const activeCharacter = getActiveCharacter(battleState, battleState.party)
 
   const enemyColumns = useMemo(() => {
-    const aliveEnemies = battleState.enemies.filter((enemy) => enemy.hp > 0)
+    const aliveEnemies = battleState.enemies.filter((enemy) => enemy.currentHp > 0)
     const frontEnemies = aliveEnemies.filter((enemy) => enemy.position === 'front')
     const backEnemies = aliveEnemies.filter((enemy) => enemy.position === 'back')
 
@@ -64,7 +65,7 @@ export function BattleScreen({ party, onBattleEnd, onEscape }: BattleScreenProps
   }, [battleState.enemies])
 
   const selectableEnemyColumns = useMemo(
-    () => enemyColumns.map((column) => column.filter((enemy) => enemy.hp > 0)),
+    () => enemyColumns.map((column) => column.filter((enemy) => enemy.currentHp > 0)),
     [enemyColumns],
   )
   const selectableEnemies = useMemo(
@@ -74,7 +75,7 @@ export function BattleScreen({ party, onBattleEnd, onEscape }: BattleScreenProps
   const targetRowCount = Math.max(selectableEnemyColumns[0]?.length ?? 0, 1)
   const defaultTargetIndex = useMemo(() => {
     const frontAliveEnemies = battleState.enemies.filter(
-      (enemy) => enemy.position === 'front' && enemy.hp > 0,
+      (enemy) => enemy.position === 'front' && enemy.currentHp > 0,
     )
     const defaultEnemyId = frontAliveEnemies.at(-1)?.id ?? selectableEnemies[0]?.id
 
@@ -86,7 +87,7 @@ export function BattleScreen({ party, onBattleEnd, onEscape }: BattleScreenProps
   const activeEnemy = selectableEnemies[battleState.selectedTargetIndex]
   const enemyListColumnWidth = useMemo(() => {
     const longestEnemyNameLength = battleState.enemies.reduce(
-      (longestLength, enemy) => (enemy.hp > 0 ? Math.max(longestLength, enemy.name.length) : longestLength),
+      (longestLength, enemy) => (enemy.currentHp > 0 ? Math.max(longestLength, enemy.name.length) : longestLength),
       0,
     )
 
@@ -353,9 +354,9 @@ export function BattleScreen({ party, onBattleEnd, onEscape }: BattleScreenProps
                     <span className="heart-mark" aria-label="HP">
                       ♥
                     </span>
-                    <span>{character.hp}</span>
+                    <span>{character.currentHp}</span>
                     <span>/</span>
-                    <span>{character.maxHp}</span>
+                    <span>{getMaxHp(character)}</span>
                   </span>
                 </li>
               ))}

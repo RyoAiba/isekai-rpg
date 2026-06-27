@@ -1,3 +1,4 @@
+import { normalizeCharacters } from './characterMigration'
 import type { GameSaveData } from '../types/saveData'
 
 const SAVE_KEY = 'isekai-rpg-save-data'
@@ -33,7 +34,7 @@ export function loadGame(): GameSaveData | null {
     }
 
     return {
-      party: parsedSaveData.party,
+      party: normalizeCharacters(parsedSaveData.party),
       money: typeof parsedSaveData.money === 'number' ? parsedSaveData.money : 0,
     }
   } catch {

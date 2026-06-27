@@ -1,3 +1,4 @@
+import { getDirectDefense, getPower } from './StatCalculator'
 import type { Character } from '../types/character'
 
 type DamageCalculationParams = {
@@ -16,7 +17,7 @@ export function calculateDamage({
   attacker,
   defender,
 }: DamageCalculationParams): DamageCalculationResult {
-  const baseDamage = attacker.power - defender.directDefense
+  const baseDamage = getPower(attacker) - getDirectDefense(defender)
 
   return {
     damage: Math.max(baseDamage, MINIMUM_DAMAGE),
