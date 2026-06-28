@@ -1,4 +1,5 @@
 import type { Character } from '../types/character'
+import { allenBattleSprite } from './battleSprites'
 
 export const party: Character[] = [
   {
@@ -20,6 +21,7 @@ export const party: Character[] = [
     activeEffects: [],
     range: 'S',
     position: 'front',
+    battleSprite: allenBattleSprite,
   },
   {
     id: 2,

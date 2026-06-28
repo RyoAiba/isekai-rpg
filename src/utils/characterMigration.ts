@@ -1,6 +1,7 @@
 import type { Character } from '../types/character'
 import type { ActiveEffect } from '../battle/effects/types'
 import type { BattleTraits, Stats } from '../types/stats'
+import { defaultBattleSpritesByCharacterId } from '../data/battleSprites'
 
 type LegacyCharacter = Partial<Character> & {
   hp?: number
@@ -39,9 +40,11 @@ function normalizeActiveEffects(character: LegacyCharacter): ActiveEffect[] {
 export function normalizeCharacter(character: LegacyCharacter): Character {
   const baseStats: Partial<Stats> = character.baseStats ?? {}
   const maxHp = toNumber(baseStats.maxHp, toNumber(character.maxHp, 1))
+  const id = toNumber(character.id, 0)
+  const battleSprite = character.battleSprite ?? defaultBattleSpritesByCharacterId[id]
 
   return {
-    id: toNumber(character.id, 0),
+    id,
     name: typeof character.name === 'string' ? character.name : 'Unknown',
     level: toNumber(character.level, 1),
     exp: toNumber(character.exp, 0),
@@ -67,6 +70,12 @@ export function normalizeCharacter(character: LegacyCharacter): Character {
     activeEffects: normalizeActiveEffects(character),
     range: character.range ?? 'S',
     position: character.position ?? 'front',
+    battleSprite: battleSprite
+      ? {
+          ...battleSprite,
+          motions: { ...battleSprite.motions },
+        }
+      : undefined,
   }
 }
 

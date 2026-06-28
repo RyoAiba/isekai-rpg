@@ -219,6 +219,29 @@ button.is-selected {
   font-size: 0.75rem;
 }
 
+.unit-card.has-battle-sprite {
+  align-items: end;
+  width: 128px;
+  height: 132px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.unit-card.has-battle-sprite::after {
+  content: none;
+}
+
+.battle-unit-sprite {
+  display: block;
+  object-fit: contain;
+  object-position: center bottom;
+  image-rendering: pixelated;
+  filter: drop-shadow(2px 3px 0 rgba(0, 0, 0, 0.35));
+  user-select: none;
+}
+
 .unit-debug-info {
   position: absolute;
   left: 0;

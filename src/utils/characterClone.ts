@@ -7,6 +7,12 @@ export function cloneCharacter(character: Character): Character {
     baseStats: getStatsSnapshot(character),
     battleTraits: { ...character.battleTraits },
     activeEffects: character.activeEffects.map((effect) => ({ ...effect })),
+    battleSprite: character.battleSprite
+      ? {
+          ...character.battleSprite,
+          motions: { ...character.battleSprite.motions },
+        }
+      : undefined,
   }
 }
 

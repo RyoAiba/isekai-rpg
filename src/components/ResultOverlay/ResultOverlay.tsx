@@ -114,6 +114,12 @@ function toSavedParty(resultCharacters: ResultCharacter[]): Character[] {
     activeEffects: character.activeEffects.map((effect) => ({ ...effect })),
     range: character.range,
     position: character.position,
+    battleSprite: character.battleSprite
+      ? {
+          ...character.battleSprite,
+          motions: { ...character.battleSprite.motions },
+        }
+      : undefined,
   }))
 }
 

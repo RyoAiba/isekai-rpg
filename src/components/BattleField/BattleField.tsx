@@ -1,6 +1,6 @@
 import { getActiveEffectDefinitions } from '../../battle/effects/EffectManager'
 import { getMaxHp } from '../../battle/StatCalculator'
-import type { Character } from '../../types/character'
+import type { BattleSpriteMotion, Character } from '../../types/character'
 
 type BattleFieldProps = {
   party: Character[]
@@ -22,6 +22,21 @@ function getDebugInfo(character: Character, options: { showHp?: boolean } = {}) 
   const hpText = options.showHp ? ' HP ' + character.currentHp + '/' + getMaxHp(character) : ''
 
   return character.range + ' / ' + effectText + hpText
+}
+
+function getBattleSpriteMotion(
+  character: Character,
+  options: { actingCharacterId?: number; damagedCharacterId?: number },
+): BattleSpriteMotion {
+  if (character.id === options.damagedCharacterId) {
+    return 'damaged'
+  }
+
+  if (character.id === options.actingCharacterId) {
+    return 'attack'
+  }
+
+  return 'idle'
 }
 
 export function BattleField({
@@ -83,9 +98,17 @@ export function BattleField({
 
       <div className="battle-side battle-side-party" aria-label="味方エリア">
         {orderedParty.map((character, index) => {
+          const battleSprite = character.battleSprite
+          const battleSpriteMotion = getBattleSpriteMotion(character, {
+            actingCharacterId,
+            damagedCharacterId,
+          })
+          const battleSpriteSrc =
+            battleSprite?.motions[battleSpriteMotion] ?? battleSprite?.motions.idle
           const partyClassName = [
             'unit-card',
             'party-unit',
+            battleSprite ? 'has-battle-sprite' : '',
             'formation-slot-' + (index + 1),
             character.id === activeCharacterId ? 'is-active-character' : '',
             character.id === actingCharacterId ? 'is-acting-character' : '',
@@ -99,7 +122,19 @@ export function BattleField({
               className={partyClassName}
               key={character.id + '-' + (character.id === damagedCharacterId ? damageEventId : 0)}
             >
-              <span>{character.name}</span>
+              {battleSprite && battleSpriteSrc ? (
+                <img
+                  alt={battleSprite.alt}
+                  className="battle-unit-sprite"
+                  src={battleSpriteSrc}
+                  style={{
+                    width: battleSprite.width,
+                    height: battleSprite.height,
+                  }}
+                />
+              ) : (
+                <span>{character.name}</span>
+              )}
               {showDebugInfo && <small className="unit-debug-info">{getDebugInfo(character)}</small>}
             </div>
           )
