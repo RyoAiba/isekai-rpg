@@ -5,12 +5,13 @@ export type CharacterRange = 'S' | 'M' | 'L'
 
 export type CharacterPosition = 'front' | 'back'
 
-export type BattleSpriteMotion = 'idle' | 'attack' | 'skill' | 'damaged'
+export type BattleSpriteMotion = 'idle' | 'approach' | 'attack' | 'return'
 
 export type BattleSprite = {
   alt: string
   width: number
   height: number
+  attackHitFrameMs: number
   motions: Partial<Record<BattleSpriteMotion, string>> & {
     idle: string
   }

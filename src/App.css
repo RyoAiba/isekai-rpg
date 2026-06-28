@@ -293,6 +293,23 @@ button.is-selected {
   transition: translate 220ms ease-in-out;
 }
 
+.party-unit.is-melee-acting-character {
+  z-index: 4;
+  transition: none;
+}
+
+.party-unit.is-melee-approach {
+  animation: melee-approach 560ms linear forwards;
+}
+
+.party-unit.is-melee-attack {
+  translate: var(--melee-target-x) var(--melee-target-y);
+}
+
+.party-unit.is-melee-return {
+  animation: melee-return 520ms linear forwards;
+}
+
 .battle-side-enemy .formation-slot-1 {
   transform: translate(-30px, 2px);
 }
@@ -795,6 +812,98 @@ button.is-selected {
     filter: brightness(1);
     opacity: 0;
     scale: 0.78;
+  }
+}
+
+@keyframes melee-approach {
+  0% {
+    translate: 0 0;
+  }
+
+  10% {
+    translate: var(--melee-step-10-x) var(--melee-step-10-y);
+  }
+
+  20% {
+    translate: var(--melee-step-20-x) var(--melee-step-20-y);
+  }
+
+  30% {
+    translate: var(--melee-step-30-x) var(--melee-step-30-y);
+  }
+
+  40% {
+    translate: var(--melee-step-40-x) var(--melee-step-40-y);
+  }
+
+  50% {
+    translate: var(--melee-step-50-x) var(--melee-step-50-y);
+  }
+
+  60% {
+    translate: var(--melee-step-60-x) var(--melee-step-60-y);
+  }
+
+  70% {
+    translate: var(--melee-step-70-x) var(--melee-step-70-y);
+  }
+
+  80% {
+    translate: var(--melee-step-80-x) var(--melee-step-80-y);
+  }
+
+  90% {
+    translate: var(--melee-step-90-x) var(--melee-step-90-y);
+  }
+
+  100% {
+    translate: var(--melee-target-x) var(--melee-target-y);
+  }
+}
+
+@keyframes melee-return {
+  0% {
+    translate: var(--melee-target-x) var(--melee-target-y);
+  }
+
+  10% {
+    translate: var(--melee-step-90-x) var(--melee-step-90-y);
+  }
+
+  20% {
+    translate: var(--melee-step-80-x) var(--melee-step-80-y);
+  }
+
+  30% {
+    translate: var(--melee-step-70-x) var(--melee-step-70-y);
+  }
+
+  40% {
+    translate: var(--melee-step-60-x) var(--melee-step-60-y);
+  }
+
+  50% {
+    translate: var(--melee-step-50-x) var(--melee-step-50-y);
+  }
+
+  60% {
+    translate: var(--melee-step-40-x) var(--melee-step-40-y);
+  }
+
+  70% {
+    translate: var(--melee-step-30-x) var(--melee-step-30-y);
+  }
+
+  80% {
+    translate: var(--melee-step-20-x) var(--melee-step-20-y);
+  }
+
+  90% {
+    translate: var(--melee-step-10-x) var(--melee-step-10-y);
+  }
+
+  100% {
+    translate: 0 0;
   }
 }
 

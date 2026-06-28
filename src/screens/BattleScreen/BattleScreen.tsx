@@ -6,13 +6,18 @@ import {
   applyConfirmCommand,
   applyPartyCommand,
   applyTargetSelection,
+  advanceAnimatedPartyActionToAttack,
+  beginAnimatedPartyAction,
   cancelTargetSelection,
+  canUseAnimatedPartyAction,
   createInitialBattleState,
   executeNextBattleAction,
+  finishAnimatedPartyAction,
   getActiveCharacter,
   getAlivePartyMembers,
   moveSelection,
   moveTargetSelection,
+  resolveAnimatedPartyActionHit,
   returnToPreviousCharacter,
   setSelectedCharacterCommand,
   setSelectedConfirmCommand,
@@ -48,6 +53,9 @@ const BATTLE_START_DELAY_MS = 1000
 const BATTLE_ACTION_INTERVAL_MS = 1000
 const BATTLE_DEFEAT_CHAIN_INTERVAL_MS = 450
 const RESULT_OVERLAY_DELAY_MS = 1000
+const APPROACH_DURATION_MS = 560
+const RETURN_DURATION_MS = 520
+const DEFAULT_ATTACK_HIT_FRAME_MS = 320
 
 export function BattleScreen({ party, money, onBattleComplete, onEscape }: BattleScreenProps) {
   const resultTimerRef = useRef<number | null>(null)
@@ -141,6 +149,47 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
       return
     }
 
+    if (battleState.executionStep === 'approach') {
+      actionTimerRef.current = window.setTimeout(() => {
+        setBattleState((currentState) => advanceAnimatedPartyActionToAttack(currentState))
+      }, APPROACH_DURATION_MS)
+
+      return () => {
+        if (actionTimerRef.current !== null) {
+          window.clearTimeout(actionTimerRef.current)
+        }
+      }
+    }
+
+    if (battleState.executionStep === 'attack') {
+      const actingCharacter = battleState.party.find(
+        (character) => character.id === battleState.executingCharacterId,
+      )
+      const hitFrameMs = actingCharacter?.battleSprite?.attackHitFrameMs ?? DEFAULT_ATTACK_HIT_FRAME_MS
+
+      actionTimerRef.current = window.setTimeout(() => {
+        setBattleState((currentState) => resolveAnimatedPartyActionHit(currentState))
+      }, hitFrameMs)
+
+      return () => {
+        if (actionTimerRef.current !== null) {
+          window.clearTimeout(actionTimerRef.current)
+        }
+      }
+    }
+
+    if (battleState.executionStep === 'return') {
+      actionTimerRef.current = window.setTimeout(() => {
+        setBattleState((currentState) => finishAnimatedPartyAction(currentState))
+      }, RETURN_DURATION_MS)
+
+      return () => {
+        if (actionTimerRef.current !== null) {
+          window.clearTimeout(actionTimerRef.current)
+        }
+      }
+    }
+
     const delay = battleState.executingCharacterId === undefined && battleState.executingEnemyId === undefined
       ? battleState.executingActionIndex === 0
         ? BATTLE_START_DELAY_MS
@@ -150,7 +199,11 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
         : BATTLE_ACTION_INTERVAL_MS
 
     actionTimerRef.current = window.setTimeout(() => {
-      setBattleState((currentState) => executeNextBattleAction(currentState))
+      setBattleState((currentState) =>
+        canUseAnimatedPartyAction(currentState)
+          ? beginAnimatedPartyAction(currentState)
+          : executeNextBattleAction(currentState),
+      )
     }, delay)
 
     return () => {
@@ -162,7 +215,9 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
     battleState.executingActionIndex,
     battleState.executingCharacterId,
     battleState.executingEnemyId,
+    battleState.executionStep,
     battleState.lastActionDefeatedEnemy,
+    battleState.party,
     battleState.phase,
   ])
 
@@ -301,8 +356,11 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
         damagedEnemyId={battleState.lastDamagedEnemyId}
         damagedCharacterId={battleState.lastDamagedCharacterId}
         damageEventId={battleState.lastDamageEventId}
+        executionStep={battleState.executionStep}
+        meleeActionKey={String(battleState.executionAnimationId)}
         actingCharacterId={isExecuting || isResolving ? battleState.executingCharacterId : undefined}
         actingEnemyId={isExecuting || isResolving ? battleState.executingEnemyId : undefined}
+        actingTargetEnemyId={isExecuting || isResolving ? battleState.executingTargetEnemyId : undefined}
         showDebugInfo={isBattleDebugEnabled}
       />
 

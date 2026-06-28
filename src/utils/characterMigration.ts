@@ -41,7 +41,8 @@ export function normalizeCharacter(character: LegacyCharacter): Character {
   const baseStats: Partial<Stats> = character.baseStats ?? {}
   const maxHp = toNumber(baseStats.maxHp, toNumber(character.maxHp, 1))
   const id = toNumber(character.id, 0)
-  const battleSprite = character.battleSprite ?? defaultBattleSpritesByCharacterId[id]
+  const defaultBattleSprite = defaultBattleSpritesByCharacterId[id]
+  const battleSprite = character.battleSprite || defaultBattleSprite
 
   return {
     id,
@@ -72,8 +73,16 @@ export function normalizeCharacter(character: LegacyCharacter): Character {
     position: character.position ?? 'front',
     battleSprite: battleSprite
       ? {
+          ...defaultBattleSprite,
           ...battleSprite,
-          motions: { ...battleSprite.motions },
+          attackHitFrameMs: toNumber(
+            battleSprite.attackHitFrameMs,
+            defaultBattleSprite?.attackHitFrameMs ?? 320,
+          ),
+          motions: {
+            ...defaultBattleSprite?.motions,
+            ...battleSprite.motions,
+          },
         }
       : undefined,
   }

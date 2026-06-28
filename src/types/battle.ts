@@ -10,6 +10,8 @@ export type BattlePhase =
   | 'executing'
   | 'resolving'
 
+export type BattleExecutionStep = 'approach' | 'attack' | 'return'
+
 export type PartyCommandType = 'fight' | 'escape' | 'auto'
 
 export type ConfirmCommandType = 'yes' | 'no'
@@ -71,8 +73,11 @@ export type BattleState = {
   enemies: Character[]
   timeline: BattleTimelineEvent[]
   executingActionIndex: number
+  executionAnimationId: number
+  executionStep?: BattleExecutionStep
   executingCharacterId?: number
   executingEnemyId?: number
+  executingTargetEnemyId?: number
   lastActionDefeatedEnemy: boolean
   lastDefeatedEnemyId?: number
   lastDamagedEnemyId?: number

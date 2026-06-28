@@ -59,8 +59,11 @@ export function createInitialBattleState(
     enemies: cloneCharacters(enemies),
     timeline: [],
     executingActionIndex: 0,
+    executionAnimationId: 0,
+    executionStep: undefined,
     executingCharacterId: undefined,
     executingEnemyId: undefined,
+    executingTargetEnemyId: undefined,
     lastActionDefeatedEnemy: false,
     lastDefeatedEnemyId: undefined,
     lastDamagedEnemyId: undefined,
@@ -268,8 +271,11 @@ export function startCharacterCommandInput(state: BattleState): BattleState {
     actions: [],
     actionQueue: [],
     executingActionIndex: 0,
+    executionAnimationId: 0,
+    executionStep: undefined,
     executingCharacterId: undefined,
     executingEnemyId: undefined,
+    executingTargetEnemyId: undefined,
     lastActionDefeatedEnemy: false,
     lastDefeatedEnemyId: undefined,
     lastDamagedEnemyId: undefined,
@@ -440,8 +446,11 @@ export function applyConfirmCommand(
       isAutoCommandConfirm: false,
       actionQueue: [],
       executingActionIndex: 0,
+      executionAnimationId: 0,
+      executionStep: undefined,
       executingCharacterId: undefined,
       executingEnemyId: undefined,
+      executingTargetEnemyId: undefined,
       actions: [],
     }
   }
@@ -456,8 +465,11 @@ export function applyConfirmCommand(
     isAutoCommandConfirm: false,
     actionQueue: [],
     executingActionIndex: 0,
+    executionAnimationId: 0,
+    executionStep: undefined,
     executingCharacterId: undefined,
     executingEnemyId: undefined,
+    executingTargetEnemyId: undefined,
     actions: state.actions.slice(0, -1),
   }
 }
@@ -485,8 +497,11 @@ export function startBattleExecution(state: BattleState): BattleState {
     isAutoCommandConfirm: false,
     actionQueue,
     executingActionIndex: 0,
+    executionAnimationId: state.executionAnimationId,
+    executionStep: undefined,
     executingCharacterId: undefined,
     executingEnemyId: undefined,
+    executingTargetEnemyId: undefined,
     lastActionDefeatedEnemy: false,
     lastDefeatedEnemyId: undefined,
     lastDamagedEnemyId: undefined,
@@ -511,8 +526,11 @@ function resetPlayerTurn(state: BattleState): BattleState {
     actions: [],
     actionQueue: [],
     executingActionIndex: 0,
+    executionAnimationId: state.executionAnimationId,
+    executionStep: undefined,
     executingCharacterId: undefined,
     executingEnemyId: undefined,
+    executingTargetEnemyId: undefined,
     lastActionDefeatedEnemy: false,
     lastDefeatedEnemyId: undefined,
     lastDamagedEnemyId: undefined,
@@ -548,6 +566,142 @@ function applyAttackEffects(
   return nextTarget
 }
 
+export function canUseAnimatedPartyAction(state: BattleState) {
+  const action = state.actionQueue[state.executingActionIndex]
+
+  if (!action || action.actorSide !== 'party' || action.type !== 'attack') {
+    return false
+  }
+
+  const attacker = state.party.find((character) => character.id === action.characterId)
+  const target = resolveActionTarget(state.enemies, action.targetId)
+
+  return attacker?.id === 1
+    && (attacker.range === 'S' || attacker.range === 'M')
+    && target?.position === 'front'
+    && attacker.currentHp > 0
+    && target.currentHp > 0
+}
+
+export function beginAnimatedPartyAction(state: BattleState): BattleState {
+  const action = state.actionQueue[state.executingActionIndex]
+  const attacker = state.party.find((character) => character.id === action?.characterId)
+  const target = resolveActionTarget(state.enemies, action?.targetId)
+
+  if (!action || !attacker || !target) {
+    return state
+  }
+
+  return {
+    ...state,
+    executionAnimationId: state.executionAnimationId + 1,
+    executionStep: 'approach',
+    executingCharacterId: attacker.id,
+    executingEnemyId: undefined,
+    executingTargetEnemyId: target.id,
+    lastActionDefeatedEnemy: false,
+    lastDefeatedEnemyId: undefined,
+    lastDamagedEnemyId: undefined,
+    lastDamagedCharacterId: undefined,
+  }
+}
+
+export function advanceAnimatedPartyActionToAttack(state: BattleState): BattleState {
+  if (state.executionStep !== 'approach') {
+    return state
+  }
+
+  return {
+    ...state,
+    executionStep: 'attack',
+  }
+}
+
+export function resolveAnimatedPartyActionHit(state: BattleState): BattleState {
+  const action = state.actionQueue[state.executingActionIndex]
+  const nextEnemies = cloneCharacters(state.enemies)
+  const timeline: BattleTimelineEvent[] = [...state.timeline]
+  const attacker = state.party.find((character) => character.id === action?.characterId)
+
+  if (!action || !attacker || attacker.currentHp <= 0) {
+    return {
+      ...state,
+      executionStep: 'return',
+      timeline,
+    }
+  }
+
+  let defeatedEnemyThisAction = false
+  let defeatedEnemyId: number | undefined
+  let damagedEnemyId: number | undefined
+
+  const target = resolveActionTarget(nextEnemies, action.targetId)
+  const targetIndex = nextEnemies.findIndex((enemy) => enemy.id === target?.id)
+
+  if (targetIndex < 0 || !target) {
+    addTimeline(timeline, attacker.name + 'の攻撃対象はいなかった')
+  } else {
+    const { damage } = calculateDamage({ attacker, defender: target })
+    const nextHp = Math.max(target.currentHp - damage, 0)
+    defeatedEnemyThisAction = nextHp === 0
+    defeatedEnemyId = defeatedEnemyThisAction ? target.id : undefined
+    damagedEnemyId = target.id
+    const defeatMessage = defeatedEnemyThisAction ? '。' + target.name + 'を倒した' : ''
+
+    nextEnemies[targetIndex] = {
+      ...target,
+      currentHp: nextHp,
+    }
+
+    addTimeline(timeline, attacker.name + 'は' + target.name + 'を攻撃した。' + damage + 'ダメージ' + defeatMessage)
+  }
+
+  const isVictory = checkVictory(nextEnemies)
+
+  if (isVictory) {
+    addTimeline(timeline, '敵を全滅させた！')
+  }
+
+  return {
+    ...state,
+    executionStep: 'return',
+    activeCharacterIndex: 0,
+    selectedPartyCommandIndex: 0,
+    selectedCharacterCommandIndex: 0,
+    selectedTargetIndex: 0,
+    selectedConfirmIndex: 0,
+    isAutoCommandConfirm: false,
+    executingCharacterId: attacker.id,
+    executingEnemyId: undefined,
+    lastActionDefeatedEnemy: defeatedEnemyThisAction,
+    lastDefeatedEnemyId: defeatedEnemyId,
+    lastDamagedEnemyId: damagedEnemyId,
+    lastDamagedCharacterId: undefined,
+    lastDamageEventId: damagedEnemyId === undefined ? state.lastDamageEventId : state.lastDamageEventId + 1,
+    enemies: nextEnemies,
+    rewards: isVictory ? calculateRewards(state.enemies) : state.rewards,
+    timeline,
+    isVictory,
+    isDefeat: false,
+  }
+}
+
+export function finishAnimatedPartyAction(state: BattleState): BattleState {
+  const isVictory = state.isVictory
+
+  return {
+    ...state,
+    phase: isVictory ? 'resolving' : 'executing',
+    executionStep: undefined,
+    executingActionIndex: state.executingActionIndex + 1,
+    executingCharacterId: undefined,
+    executingEnemyId: undefined,
+    executingTargetEnemyId: undefined,
+    actions: isVictory ? [] : state.actions,
+    actionQueue: isVictory ? [] : state.actionQueue,
+  }
+}
+
 function executePartyAction(state: BattleState, action: BattleQueuedAction): BattleState {
   const nextEnemies = cloneCharacters(state.enemies)
   const timeline: BattleTimelineEvent[] = [...state.timeline]
@@ -557,7 +711,9 @@ function executePartyAction(state: BattleState, action: BattleQueuedAction): Bat
     return {
       ...state,
       executingActionIndex: state.executingActionIndex + 1,
+      executionStep: undefined,
       executingCharacterId: undefined,
+      executingTargetEnemyId: undefined,
       timeline,
     }
   }
@@ -609,8 +765,10 @@ function executePartyAction(state: BattleState, action: BattleQueuedAction): Bat
     selectedConfirmIndex: 0,
     isAutoCommandConfirm: false,
     executingActionIndex: state.executingActionIndex + 1,
+    executionStep: undefined,
     executingCharacterId: attacker.id,
     executingEnemyId: undefined,
+    executingTargetEnemyId: undefined,
     lastActionDefeatedEnemy: defeatedEnemyThisAction,
     lastDefeatedEnemyId: defeatedEnemyId,
     lastDamagedEnemyId: damagedEnemyId,
@@ -634,7 +792,9 @@ function executeEnemyAction(state: BattleState, action: BattleQueuedAction): Bat
     return {
       ...state,
       executingActionIndex: state.executingActionIndex + 1,
+      executionStep: undefined,
       executingEnemyId: undefined,
+      executingTargetEnemyId: undefined,
       timeline,
     }
   }
@@ -650,8 +810,10 @@ function executeEnemyAction(state: BattleState, action: BattleQueuedAction): Bat
       phase: 'resolving',
       party: nextParty,
       timeline,
+      executionStep: undefined,
       executingEnemyId: enemy.id,
       executingCharacterId: undefined,
+      executingTargetEnemyId: undefined,
       lastDamagedEnemyId: undefined,
       lastDamagedCharacterId: undefined,
       isVictory: false,
@@ -686,8 +848,10 @@ function executeEnemyAction(state: BattleState, action: BattleQueuedAction): Bat
     party: nextParty,
     timeline,
     executingActionIndex: state.executingActionIndex + 1,
+    executionStep: undefined,
     executingEnemyId: enemy.id,
     executingCharacterId: undefined,
+    executingTargetEnemyId: undefined,
     lastActionDefeatedEnemy: false,
     lastDefeatedEnemyId: undefined,
     lastDamagedEnemyId: undefined,

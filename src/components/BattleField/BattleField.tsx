@@ -1,5 +1,7 @@
+import type { CSSProperties } from 'react'
 import { getActiveEffectDefinitions } from '../../battle/effects/EffectManager'
 import { getMaxHp } from '../../battle/StatCalculator'
+import type { BattleExecutionStep } from '../../types/battle'
 import type { BattleSpriteMotion, Character } from '../../types/character'
 
 type BattleFieldProps = {
@@ -11,9 +13,36 @@ type BattleFieldProps = {
   damagedEnemyId?: number
   damagedCharacterId?: number
   damageEventId?: number
+  executionStep?: BattleExecutionStep
+  meleeActionKey?: string
   actingCharacterId?: number
   actingEnemyId?: number
+  actingTargetEnemyId?: number
   showDebugInfo?: boolean
+}
+
+type MeleeApproachRoute = {
+  targetXVw: number
+  targetYPx: number
+  arcHeightPx: number
+}
+
+const ALLEN_APPROACH_ROUTES_BY_FRONT_ENEMY_SLOT: Record<number, MeleeApproachRoute> = {
+  1: {
+    targetXVw: -56,
+    targetYPx: -54,
+    arcHeightPx: 150,
+  },
+  2: {
+    targetXVw: -58,
+    targetYPx: -70,
+    arcHeightPx: 160,
+  },
+  3: {
+    targetXVw: -60,
+    targetYPx: -86,
+    arcHeightPx: 170,
+  },
 }
 
 function getDebugInfo(character: Character, options: { showHp?: boolean } = {}) {
@@ -26,17 +55,43 @@ function getDebugInfo(character: Character, options: { showHp?: boolean } = {}) 
 
 function getBattleSpriteMotion(
   character: Character,
-  options: { actingCharacterId?: number; damagedCharacterId?: number },
+  options: { actingCharacterId?: number; executionStep?: BattleExecutionStep },
 ): BattleSpriteMotion {
-  if (character.id === options.damagedCharacterId) {
-    return 'damaged'
-  }
-
   if (character.id === options.actingCharacterId) {
-    return 'attack'
+    if (options.executionStep === 'approach') {
+      return 'approach'
+    }
+
+    if (options.executionStep === 'attack') {
+      return 'attack'
+    }
+
+    if (options.executionStep === 'return') {
+      return 'return'
+    }
   }
 
   return 'idle'
+}
+
+function getMeleeRouteStyle(route: MeleeApproachRoute): CSSProperties {
+  const style = {
+    '--melee-target-x': `${route.targetXVw}vw`,
+    '--melee-target-y': `${route.targetYPx}px`,
+  } as CSSProperties
+
+  for (let step = 10; step <= 90; step += 10) {
+    const progress = step / 100
+    const x = route.targetXVw * progress
+    const y = route.targetYPx * progress - route.arcHeightPx * 4 * progress * (1 - progress)
+
+    Object.assign(style, {
+      [`--melee-step-${step}-x`]: `${x}vw`,
+      [`--melee-step-${step}-y`]: `${y}px`,
+    })
+  }
+
+  return style
 }
 
 export function BattleField({
@@ -48,8 +103,11 @@ export function BattleField({
   damagedEnemyId,
   damagedCharacterId,
   damageEventId = 0,
+  executionStep,
+  meleeActionKey,
   actingCharacterId,
   actingEnemyId,
+  actingTargetEnemyId,
   showDebugInfo = false,
 }: BattleFieldProps) {
   const visibleEnemies = enemies.filter(
@@ -63,6 +121,11 @@ export function BattleField({
     ...party.filter((character) => character.position === 'front'),
     ...party.filter((character) => character.position === 'back'),
   ]
+  const frontEnemySlotById = new Map(
+    visibleEnemies
+      .filter((enemy) => enemy.position === 'front')
+      .map((enemy, index) => [enemy.id, index + 1]),
+  )
 
   return (
     <div className="battle-field" aria-label="戦闘フィールド">
@@ -101,14 +164,24 @@ export function BattleField({
           const battleSprite = character.battleSprite
           const battleSpriteMotion = getBattleSpriteMotion(character, {
             actingCharacterId,
-            damagedCharacterId,
+            executionStep,
           })
           const battleSpriteSrc =
             battleSprite?.motions[battleSpriteMotion] ?? battleSprite?.motions.idle
+          const frontEnemySlot = actingTargetEnemyId === undefined
+            ? undefined
+            : frontEnemySlotById.get(actingTargetEnemyId)
+          const meleeRoute = character.id === 1 && frontEnemySlot !== undefined
+            ? ALLEN_APPROACH_ROUTES_BY_FRONT_ENEMY_SLOT[frontEnemySlot]
+            : undefined
+          const isMeleeActingCharacter =
+            character.id === actingCharacterId && executionStep !== undefined && meleeRoute !== undefined
           const partyClassName = [
             'unit-card',
             'party-unit',
             battleSprite ? 'has-battle-sprite' : '',
+            isMeleeActingCharacter ? 'is-melee-acting-character' : '',
+            isMeleeActingCharacter ? 'is-melee-' + executionStep : '',
             'formation-slot-' + (index + 1),
             character.id === activeCharacterId ? 'is-active-character' : '',
             character.id === actingCharacterId ? 'is-acting-character' : '',
@@ -120,7 +193,14 @@ export function BattleField({
           return (
             <div
               className={partyClassName}
-              key={character.id + '-' + (character.id === damagedCharacterId ? damageEventId : 0)}
+              key={
+                character.id
+                + '-'
+                + (character.id === damagedCharacterId ? damageEventId : 0)
+                + '-'
+                + (isMeleeActingCharacter ? meleeActionKey : 'idle')
+              }
+              style={meleeRoute ? getMeleeRouteStyle(meleeRoute) : undefined}
             >
               {battleSprite && battleSpriteSrc ? (
                 <img
