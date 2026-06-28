@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { party as initialParty } from './data/party'
 import { canStayAtInn, healPartyAtInn, INN_COST } from './game/inn'
 import { InputManager } from './input/InputManager'
@@ -9,6 +10,9 @@ import type { Character } from './types/character'
 import type { GameScreen } from './types/game'
 import { clearSaveGame, hasSaveGame, loadGame, saveGame } from './utils/saveData'
 import './App.css'
+
+const GAME_VIEWPORT_WIDTH = 1920
+const GAME_VIEWPORT_HEIGHT = 1080
 
 function cloneParty(party: Character[]) {
   return party.map((character) => ({ ...character }))
@@ -23,6 +27,16 @@ function App() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [hasSaveData, setHasSaveData] = useState(() => hasSaveGame())
   const [isInnFadeActive, setIsInnFadeActive] = useState(false)
+  const [gameScale, setGameScale] = useState(() => {
+    if (typeof window === 'undefined') {
+      return 1
+    }
+
+    return Math.min(
+      window.innerWidth / GAME_VIEWPORT_WIDTH,
+      window.innerHeight / GAME_VIEWPORT_HEIGHT,
+    )
+  })
 
   useEffect(() => {
     InputManager.initialize()
@@ -36,6 +50,20 @@ function App() {
         window.clearTimeout(innHealTimerRef.current)
       }
     }
+  }, [])
+
+  useEffect(() => {
+    const updateGameScale = () => {
+      setGameScale(Math.min(
+        window.innerWidth / GAME_VIEWPORT_WIDTH,
+        window.innerHeight / GAME_VIEWPORT_HEIGHT,
+      ))
+    }
+
+    updateGameScale()
+    window.addEventListener('resize', updateGameScale)
+
+    return () => window.removeEventListener('resize', updateGameScale)
   }, [])
 
   const startNewGame = () => {
@@ -101,38 +129,45 @@ function App() {
   }
 
   return (
-    <main className="game-root">
-      {screen === 'title' && (
-        <TitleScreen
-          hasSaveData={hasSaveData}
-          saveError={saveError}
-          onNewGame={startNewGame}
-          onContinue={continueGame}
-        />
-      )}
+    <div className="game-shell">
+      <main
+        className="game-root"
+        style={{ '--game-scale': gameScale } as CSSProperties}
+      >
+        <div className="game-content">
+          {screen === 'title' && (
+            <TitleScreen
+              hasSaveData={hasSaveData}
+              saveError={saveError}
+              onNewGame={startNewGame}
+              onContinue={continueGame}
+            />
+          )}
 
-      {screen === 'mainMenu' && (
-        <MainMenuScreen
-          money={money}
-          party={party}
-          innCost={INN_COST}
-          onBattle={() => setScreen('battle')}
-          onStayAtInn={stayAtInn}
-          onBackToTitle={() => setScreen('title')}
-        />
-      )}
+          {screen === 'mainMenu' && (
+            <MainMenuScreen
+              money={money}
+              party={party}
+              innCost={INN_COST}
+              onBattle={() => setScreen('battle')}
+              onStayAtInn={stayAtInn}
+              onBackToTitle={() => setScreen('title')}
+            />
+          )}
 
-      {screen === 'battle' && (
-        <BattleScreen
-          party={party}
-          money={money}
-          onBattleComplete={completeBattle}
-          onEscape={returnToMainMenu}
-        />
-      )}
+          {screen === 'battle' && (
+            <BattleScreen
+              party={party}
+              money={money}
+              onBattleComplete={completeBattle}
+              onEscape={returnToMainMenu}
+            />
+          )}
 
-      {isInnFadeActive && <div className="screen-fade-overlay is-active" aria-hidden="true" />}
-    </main>
+          {isInnFadeActive && <div className="screen-fade-overlay is-active" aria-hidden="true" />}
+        </div>
+      </main>
+    </div>
   )
 }
 
