@@ -284,8 +284,15 @@ button.is-selected {
 }
 
 .enemy-unit.is-defeated-enemy {
-  animation: enemy-defeat 450ms ease-out forwards;
+  z-index: 1;
+  animation: enemy-defeat 720ms ease-out forwards;
   pointer-events: none;
+}
+
+.enemy-unit.is-promoted-enemy {
+  z-index: 2;
+  transition: none;
+  animation: enemy-promote 720ms ease-out 100ms both;
 }
 
 .party-unit {
@@ -311,26 +318,38 @@ button.is-selected {
 }
 
 .battle-side-enemy .formation-slot-1 {
+  grid-column: 1;
+  grid-row: 1;
   transform: translate(-30px, 2px);
 }
 
 .battle-side-enemy .formation-slot-2 {
+  grid-column: 2;
+  grid-row: 1;
   transform: translate(-16px, -14px);
 }
 
 .battle-side-enemy .formation-slot-3 {
+  grid-column: 3;
+  grid-row: 1;
   transform: translate(-2px, -30px);
 }
 
 .battle-side-enemy .formation-slot-4 {
+  grid-column: 1;
+  grid-row: 2;
   transform: translate(18px, 28px);
 }
 
 .battle-side-enemy .formation-slot-5 {
+  grid-column: 2;
+  grid-row: 2;
   transform: translate(32px, 12px);
 }
 
 .battle-side-enemy .formation-slot-6 {
+  grid-column: 3;
+  grid-row: 2;
   transform: translate(46px, -4px);
 }
 
@@ -802,7 +821,7 @@ button.is-selected {
     scale: 1;
   }
 
-  45% {
+  28% {
     filter: brightness(2.4);
     opacity: 0.8;
     scale: 1.08;
@@ -812,6 +831,16 @@ button.is-selected {
     filter: brightness(1);
     opacity: 0;
     scale: 0.78;
+  }
+}
+
+@keyframes enemy-promote {
+  0% {
+    translate: var(--enemy-promote-start-x) var(--enemy-promote-start-y);
+  }
+
+  100% {
+    translate: 0 0;
   }
 }
 

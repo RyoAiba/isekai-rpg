@@ -5,6 +5,8 @@ export type CharacterRange = 'S' | 'M' | 'L'
 
 export type CharacterPosition = 'front' | 'back'
 
+export type CharacterLane = 1 | 2 | 3
+
 export type BattleSpriteMotion = 'idle' | 'approach' | 'attack' | 'return'
 
 export type BattleSprite = {
@@ -28,10 +30,12 @@ export type Character = {
   activeEffects: ActiveEffect[]
   range: CharacterRange
   position: CharacterPosition
+  lane?: CharacterLane
   battleSprite?: BattleSprite
 }
 
 export type EnemyCharacter = Character & {
+  lane: CharacterLane
   baseExp: number
   attackEffects?: AttackEffect[]
 }

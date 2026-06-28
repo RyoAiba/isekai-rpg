@@ -10,6 +10,8 @@ type BattleFieldProps = {
   activeCharacterId?: number
   activeEnemyId?: number
   defeatedEnemyId?: number
+  promotedEnemyId?: number
+  promotionAnimationId?: number
   damagedEnemyId?: number
   damagedCharacterId?: number
   damageEventId?: number
@@ -27,21 +29,41 @@ type MeleeApproachRoute = {
   arcHeightPx: number
 }
 
+type PromotionRoute = {
+  startX: string
+  startY: string
+}
+
 const ALLEN_APPROACH_ROUTES_BY_FRONT_ENEMY_SLOT: Record<number, MeleeApproachRoute> = {
   1: {
-    targetXVw: -56,
-    targetYPx: -54,
-    arcHeightPx: 150,
+    targetXVw: -48,
+    targetYPx: -36,
+    arcHeightPx: 145,
   },
   2: {
-    targetXVw: -58,
-    targetYPx: -70,
-    arcHeightPx: 160,
+    targetXVw: -38,
+    targetYPx: -66,
+    arcHeightPx: 165,
   },
   3: {
-    targetXVw: -60,
-    targetYPx: -86,
-    arcHeightPx: 170,
+    targetXVw: -28,
+    targetYPx: -96,
+    arcHeightPx: 185,
+  },
+}
+
+const ENEMY_PROMOTION_ROUTES_BY_LANE: Record<number, PromotionRoute> = {
+  1: {
+    startX: '-48px',
+    startY: '-116px',
+  },
+  2: {
+    startX: '-48px',
+    startY: '-116px',
+  },
+  3: {
+    startX: '-48px',
+    startY: '-116px',
   },
 }
 
@@ -94,12 +116,21 @@ function getMeleeRouteStyle(route: MeleeApproachRoute): CSSProperties {
   return style
 }
 
+function getPromotionRouteStyle(route: PromotionRoute): CSSProperties {
+  return {
+    '--enemy-promote-start-x': route.startX,
+    '--enemy-promote-start-y': route.startY,
+  } as CSSProperties
+}
+
 export function BattleField({
   party,
   enemies,
   activeCharacterId,
   activeEnemyId,
   defeatedEnemyId,
+  promotedEnemyId,
+  promotionAnimationId = 0,
   damagedEnemyId,
   damagedCharacterId,
   damageEventId = 0,
@@ -114,8 +145,12 @@ export function BattleField({
     (enemy) => enemy.currentHp > 0 || enemy.id === defeatedEnemyId,
   )
   const orderedEnemies = [
-    ...visibleEnemies.filter((enemy) => enemy.position === 'back'),
-    ...visibleEnemies.filter((enemy) => enemy.position === 'front'),
+    ...visibleEnemies
+      .filter((enemy) => enemy.position === 'back')
+      .sort((a, b) => (a.lane ?? 1) - (b.lane ?? 1)),
+    ...visibleEnemies
+      .filter((enemy) => enemy.position === 'front')
+      .sort((a, b) => (a.lane ?? 1) - (b.lane ?? 1)),
   ]
   const orderedParty = [
     ...party.filter((character) => character.position === 'front'),
@@ -124,21 +159,27 @@ export function BattleField({
   const frontEnemySlotById = new Map(
     visibleEnemies
       .filter((enemy) => enemy.position === 'front')
-      .map((enemy, index) => [enemy.id, index + 1]),
+      .map((enemy) => [enemy.id, enemy.lane ?? 1]),
   )
 
   return (
     <div className="battle-field" aria-label="戦闘フィールド">
       <div className="battle-side battle-side-enemy" aria-label="敵エリア">
         {orderedEnemies.map((enemy, index) => {
+          const enemyLane = enemy.lane ?? ((index % 3) + 1)
+          const enemyFormationSlot = enemy.position === 'back' ? enemyLane : enemyLane + 3
+          const promotionRoute = enemy.id === promotedEnemyId
+            ? ENEMY_PROMOTION_ROUTES_BY_LANE[enemyLane]
+            : undefined
           const enemyClassName = [
             'unit-card',
             'enemy-unit',
-            'formation-slot-' + (index + 1),
+            'formation-slot-' + enemyFormationSlot,
             enemy.id === activeEnemyId ? 'is-active-character' : '',
             enemy.id === actingEnemyId ? 'is-acting-character' : '',
             enemy.id === damagedEnemyId ? 'is-damaged-unit' : '',
             enemy.id === defeatedEnemyId ? 'is-defeated-enemy' : '',
+            enemy.id === promotedEnemyId ? 'is-promoted-enemy' : '',
           ]
             .filter(Boolean)
             .join(' ')
@@ -146,7 +187,14 @@ export function BattleField({
           return (
             <div
               className={enemyClassName}
-              key={enemy.id + '-' + (enemy.id === damagedEnemyId ? damageEventId : 0)}
+              key={
+                enemy.id
+                + '-'
+                + (enemy.id === damagedEnemyId ? damageEventId : 0)
+                + '-'
+                + (enemy.id === promotedEnemyId ? promotionAnimationId : 0)
+              }
+              style={promotionRoute ? getPromotionRouteStyle(promotionRoute) : undefined}
             >
               <span>{enemy.name}</span>
               {showDebugInfo && (
@@ -168,11 +216,13 @@ export function BattleField({
           })
           const battleSpriteSrc =
             battleSprite?.motions[battleSpriteMotion] ?? battleSprite?.motions.idle
-          const frontEnemySlot = actingTargetEnemyId === undefined
+          const targetEnemy = actingTargetEnemyId === undefined
             ? undefined
-            : frontEnemySlotById.get(actingTargetEnemyId)
-          const meleeRoute = character.id === 1 && frontEnemySlot !== undefined
-            ? ALLEN_APPROACH_ROUTES_BY_FRONT_ENEMY_SLOT[frontEnemySlot]
+            : enemies.find((enemy) => enemy.id === actingTargetEnemyId)
+          const targetLane = targetEnemy?.lane
+            ?? (actingTargetEnemyId === undefined ? undefined : frontEnemySlotById.get(actingTargetEnemyId))
+          const meleeRoute = character.id === 1 && targetLane !== undefined
+            ? ALLEN_APPROACH_ROUTES_BY_FRONT_ENEMY_SLOT[targetLane]
             : undefined
           const isMeleeActingCharacter =
             character.id === actingCharacterId && executionStep !== undefined && meleeRoute !== undefined

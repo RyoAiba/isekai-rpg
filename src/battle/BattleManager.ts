@@ -66,6 +66,8 @@ export function createInitialBattleState(
     executingTargetEnemyId: undefined,
     lastActionDefeatedEnemy: false,
     lastDefeatedEnemyId: undefined,
+    promotedEnemyId: undefined,
+    promotionAnimationId: 0,
     lastDamagedEnemyId: undefined,
     lastDamagedCharacterId: undefined,
     lastDamageEventId: 0,
@@ -108,7 +110,7 @@ function getPriorityEnemy(enemies: Character[]) {
   )
   const aliveBackEnemies = enemies.filter((enemy) => enemy.currentHp > 0 && enemy.position === 'back')
 
-  return [...aliveFrontEnemies].reverse()[0] ?? [...aliveBackEnemies].reverse()[0]
+  return getRandomAliveEnemy(aliveFrontEnemies) ?? getRandomAliveEnemy(aliveBackEnemies)
 }
 
 function resolveActionTarget(enemies: Character[], targetId?: number) {
@@ -129,6 +131,46 @@ function getRandomAlivePartyMember(party: Character[]) {
   }
 
   return aliveParty[Math.floor(Math.random() * aliveParty.length)]
+}
+
+function getRandomAliveEnemy(enemies: Character[]) {
+  if (enemies.length === 0) {
+    return undefined
+  }
+
+  return enemies[Math.floor(Math.random() * enemies.length)]
+}
+
+function promoteBackEnemyInLane(enemies: Character[], defeatedEnemyId?: number) {
+  if (defeatedEnemyId === undefined) {
+    return { nextEnemies: enemies, promotedEnemyId: undefined }
+  }
+
+  const defeatedEnemy = enemies.find((enemy) => enemy.id === defeatedEnemyId)
+
+  if (!defeatedEnemy || defeatedEnemy.position !== 'front' || defeatedEnemy.lane === undefined) {
+    return { nextEnemies: enemies, promotedEnemyId: undefined }
+  }
+
+  const promotedEnemy = enemies.find(
+    (enemy) =>
+      enemy.currentHp > 0
+      && enemy.position === 'back'
+      && enemy.lane === defeatedEnemy.lane,
+  )
+
+  if (!promotedEnemy) {
+    return { nextEnemies: enemies, promotedEnemyId: undefined }
+  }
+
+  return {
+    nextEnemies: enemies.map((enemy) =>
+      enemy.id === promotedEnemy.id
+        ? { ...enemy, position: 'front' as const }
+        : enemy,
+    ),
+    promotedEnemyId: promotedEnemy.id,
+  }
 }
 
 function createInitiative(character: Character) {
@@ -278,6 +320,8 @@ export function startCharacterCommandInput(state: BattleState): BattleState {
     executingTargetEnemyId: undefined,
     lastActionDefeatedEnemy: false,
     lastDefeatedEnemyId: undefined,
+    promotedEnemyId: undefined,
+    promotionAnimationId: state.promotionAnimationId,
     lastDamagedEnemyId: undefined,
     lastDamagedCharacterId: undefined,
     lastDamageEventId: 0,
@@ -504,6 +548,8 @@ export function startBattleExecution(state: BattleState): BattleState {
     executingTargetEnemyId: undefined,
     lastActionDefeatedEnemy: false,
     lastDefeatedEnemyId: undefined,
+    promotedEnemyId: undefined,
+    promotionAnimationId: state.promotionAnimationId,
     lastDamagedEnemyId: undefined,
     lastDamagedCharacterId: undefined,
     selectedConfirmIndex: 0,
@@ -533,6 +579,8 @@ function resetPlayerTurn(state: BattleState): BattleState {
     executingTargetEnemyId: undefined,
     lastActionDefeatedEnemy: false,
     lastDefeatedEnemyId: undefined,
+    promotedEnemyId: undefined,
+    promotionAnimationId: state.promotionAnimationId,
     lastDamagedEnemyId: undefined,
     lastDamagedCharacterId: undefined,
     roundNumber: state.roundNumber + 1,
@@ -601,6 +649,8 @@ export function beginAnimatedPartyAction(state: BattleState): BattleState {
     executingTargetEnemyId: target.id,
     lastActionDefeatedEnemy: false,
     lastDefeatedEnemyId: undefined,
+    promotedEnemyId: undefined,
+    promotionAnimationId: state.promotionAnimationId,
     lastDamagedEnemyId: undefined,
     lastDamagedCharacterId: undefined,
   }
@@ -635,7 +685,10 @@ export function resolveAnimatedPartyActionHit(state: BattleState): BattleState {
   let defeatedEnemyId: number | undefined
   let damagedEnemyId: number | undefined
 
-  const target = resolveActionTarget(nextEnemies, action.targetId)
+  const target = state.executingTargetEnemyId === undefined
+    ? resolveActionTarget(nextEnemies, action.targetId)
+    : nextEnemies.find((enemy) => enemy.id === state.executingTargetEnemyId && enemy.currentHp > 0)
+      ?? resolveActionTarget(nextEnemies, action.targetId)
   const targetIndex = nextEnemies.findIndex((enemy) => enemy.id === target?.id)
 
   if (targetIndex < 0 || !target) {
@@ -656,7 +709,8 @@ export function resolveAnimatedPartyActionHit(state: BattleState): BattleState {
     addTimeline(timeline, attacker.name + 'は' + target.name + 'を攻撃した。' + damage + 'ダメージ' + defeatMessage)
   }
 
-  const isVictory = checkVictory(nextEnemies)
+  const promotionResult = promoteBackEnemyInLane(nextEnemies, defeatedEnemyId)
+  const isVictory = checkVictory(promotionResult.nextEnemies)
 
   if (isVictory) {
     addTimeline(timeline, '敵を全滅させた！')
@@ -675,10 +729,14 @@ export function resolveAnimatedPartyActionHit(state: BattleState): BattleState {
     executingEnemyId: undefined,
     lastActionDefeatedEnemy: defeatedEnemyThisAction,
     lastDefeatedEnemyId: defeatedEnemyId,
+    promotedEnemyId: promotionResult.promotedEnemyId,
+    promotionAnimationId: promotionResult.promotedEnemyId === undefined
+      ? state.promotionAnimationId
+      : state.promotionAnimationId + 1,
     lastDamagedEnemyId: damagedEnemyId,
     lastDamagedCharacterId: undefined,
     lastDamageEventId: damagedEnemyId === undefined ? state.lastDamageEventId : state.lastDamageEventId + 1,
-    enemies: nextEnemies,
+    enemies: promotionResult.nextEnemies,
     rewards: isVictory ? calculateRewards(state.enemies) : state.rewards,
     timeline,
     isVictory,
@@ -714,6 +772,7 @@ function executePartyAction(state: BattleState, action: BattleQueuedAction): Bat
       executionStep: undefined,
       executingCharacterId: undefined,
       executingTargetEnemyId: undefined,
+      promotedEnemyId: undefined,
       timeline,
     }
   }
@@ -749,7 +808,8 @@ function executePartyAction(state: BattleState, action: BattleQueuedAction): Bat
     }
   }
 
-  const isVictory = checkVictory(nextEnemies)
+  const promotionResult = promoteBackEnemyInLane(nextEnemies, defeatedEnemyId)
+  const isVictory = checkVictory(promotionResult.nextEnemies)
 
   if (isVictory) {
     addTimeline(timeline, '敵を全滅させた！')
@@ -771,12 +831,16 @@ function executePartyAction(state: BattleState, action: BattleQueuedAction): Bat
     executingTargetEnemyId: undefined,
     lastActionDefeatedEnemy: defeatedEnemyThisAction,
     lastDefeatedEnemyId: defeatedEnemyId,
+    promotedEnemyId: promotionResult.promotedEnemyId,
+    promotionAnimationId: promotionResult.promotedEnemyId === undefined
+      ? state.promotionAnimationId
+      : state.promotionAnimationId + 1,
     lastDamagedEnemyId: damagedEnemyId,
     lastDamagedCharacterId: undefined,
     lastDamageEventId: damagedEnemyId === undefined ? state.lastDamageEventId : state.lastDamageEventId + 1,
     actions: isVictory ? [] : state.actions,
     actionQueue: isVictory ? [] : state.actionQueue,
-    enemies: nextEnemies,
+    enemies: promotionResult.nextEnemies,
     rewards: isVictory ? calculateRewards(state.enemies) : state.rewards,
     timeline,
     isVictory,
@@ -795,6 +859,7 @@ function executeEnemyAction(state: BattleState, action: BattleQueuedAction): Bat
       executionStep: undefined,
       executingEnemyId: undefined,
       executingTargetEnemyId: undefined,
+      promotedEnemyId: undefined,
       timeline,
     }
   }
@@ -815,6 +880,7 @@ function executeEnemyAction(state: BattleState, action: BattleQueuedAction): Bat
       executingCharacterId: undefined,
       executingTargetEnemyId: undefined,
       lastDamagedEnemyId: undefined,
+      promotedEnemyId: undefined,
       lastDamagedCharacterId: undefined,
       isVictory: false,
       isDefeat: true,
@@ -854,6 +920,7 @@ function executeEnemyAction(state: BattleState, action: BattleQueuedAction): Bat
     executingTargetEnemyId: undefined,
     lastActionDefeatedEnemy: false,
     lastDefeatedEnemyId: undefined,
+    promotedEnemyId: undefined,
     lastDamagedEnemyId: undefined,
     lastDamagedCharacterId: target.id,
     lastDamageEventId: state.lastDamageEventId + 1,

@@ -94,12 +94,16 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
 
   const enemyColumns = useMemo(() => {
     const aliveEnemies = battleState.enemies.filter((enemy) => enemy.currentHp > 0)
-    const frontEnemies = aliveEnemies.filter((enemy) => enemy.position === 'front')
-    const backEnemies = aliveEnemies.filter((enemy) => enemy.position === 'back')
+    const frontEnemies = aliveEnemies
+      .filter((enemy) => enemy.position === 'front')
+      .sort((a, b) => (a.lane ?? 1) - (b.lane ?? 1))
+    const backEnemies = aliveEnemies
+      .filter((enemy) => enemy.position === 'back')
+      .sort((a, b) => (a.lane ?? 1) - (b.lane ?? 1))
 
     return [
-      [...backEnemies].reverse(),
-      [...frontEnemies].reverse(),
+      backEnemies,
+      frontEnemies,
     ]
   }, [battleState.enemies])
 
@@ -116,7 +120,8 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
     const frontAliveEnemies = battleState.enemies.filter(
       (enemy) => enemy.position === 'front' && enemy.currentHp > 0,
     )
-    const defaultEnemyId = frontAliveEnemies.at(-1)?.id ?? selectableEnemies[0]?.id
+    const defaultEnemyId = frontAliveEnemies.sort((a, b) => (a.lane ?? 1) - (b.lane ?? 1))[0]?.id
+      ?? selectableEnemies[0]?.id
 
     return Math.max(
       selectableEnemies.findIndex((enemy) => enemy.id === defaultEnemyId),
@@ -353,6 +358,8 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
         activeCharacterId={activeCharacter?.id}
         activeEnemyId={battleState.phase === 'targetSelection' ? activeEnemy?.id : undefined}
         defeatedEnemyId={isExecuting || isResolving ? battleState.lastDefeatedEnemyId : undefined}
+        promotedEnemyId={isExecuting || isResolving ? battleState.promotedEnemyId : undefined}
+        promotionAnimationId={battleState.promotionAnimationId}
         damagedEnemyId={battleState.lastDamagedEnemyId}
         damagedCharacterId={battleState.lastDamagedCharacterId}
         damageEventId={battleState.lastDamageEventId}

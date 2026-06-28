@@ -80,6 +80,8 @@ export type BattleState = {
   executingTargetEnemyId?: number
   lastActionDefeatedEnemy: boolean
   lastDefeatedEnemyId?: number
+  promotedEnemyId?: number
+  promotionAnimationId: number
   lastDamagedEnemyId?: number
   lastDamagedCharacterId?: number
   lastDamageEventId: number

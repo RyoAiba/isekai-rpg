@@ -20,6 +20,7 @@ export const enemies: EnemyCharacter[] = [
     activeEffects: [],
     range: 'S',
     position: 'front',
+    lane: 1,
     baseExp: 80,
     attackEffects: [{ effectId: 'poison', chance: 1 }],
   },
@@ -42,6 +43,7 @@ export const enemies: EnemyCharacter[] = [
     activeEffects: [],
     range: 'S',
     position: 'front',
+    lane: 2,
     baseExp: 95,
   },
   {
@@ -63,6 +65,7 @@ export const enemies: EnemyCharacter[] = [
     activeEffects: [],
     range: 'S',
     position: 'front',
+    lane: 3,
     baseExp: 130,
   },
   {
@@ -84,6 +87,7 @@ export const enemies: EnemyCharacter[] = [
     activeEffects: [],
     range: 'L',
     position: 'back',
+    lane: 1,
     baseExp: 105,
   },
   {
@@ -105,6 +109,7 @@ export const enemies: EnemyCharacter[] = [
     activeEffects: [],
     range: 'M',
     position: 'back',
+    lane: 2,
     baseExp: 120,
   },
   {
@@ -126,6 +131,7 @@ export const enemies: EnemyCharacter[] = [
     activeEffects: [],
     range: 'L',
     position: 'back',
+    lane: 3,
     baseExp: 110,
   },
 ]

@@ -71,6 +71,7 @@ export function normalizeCharacter(character: LegacyCharacter): Character {
     activeEffects: normalizeActiveEffects(character),
     range: character.range ?? 'S',
     position: character.position ?? 'front',
+    lane: character.lane,
     battleSprite: battleSprite
       ? {
           ...defaultBattleSprite,
