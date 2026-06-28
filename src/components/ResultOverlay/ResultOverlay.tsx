@@ -150,20 +150,21 @@ function advanceDisplay(display: ResultCharacterDisplay): ResultCharacterDisplay
 function renderStatValue(
   display: ResultCharacterDisplay,
   key: keyof LevelUpGains,
-  currentValue: number,
+  value: number,
+  showFinalValue: boolean,
 ) {
-  if (display.revealedLevelUpCount > 0) {
+  if (display.revealedLevelUpCount > 0 && !showFinalValue) {
     const gainPerLevel = key === 'hp' ? 8 : 2
     return `+${gainPerLevel * display.revealedLevelUpCount}`
   }
 
-  return currentValue
+  return value
 }
 
 export function ResultOverlay({ party, rewards, money, onComplete }: ResultOverlayProps) {
   const closeTimerRef = useRef<number | null>(null)
   const expTimerRef = useRef<number | null>(null)
-  const [resultStep, setResultStep] = useState<'exp' | 'money' | 'closing'>('exp')
+  const [resultStep, setResultStep] = useState<'exp' | 'stats' | 'money' | 'closing'>('exp')
   const [resultCharacters] = useState(() => buildResultCharacters(party, rewards.exp))
   const [characterDisplays, setCharacterDisplays] = useState(() =>
     buildInitialDisplays(party, rewards.exp),
@@ -171,6 +172,10 @@ export function ResultOverlay({ party, rewards, money, onComplete }: ResultOverl
   const updatedParty = useMemo(() => toSavedParty(resultCharacters), [resultCharacters])
   const nextMoney = money + rewards.money
   const isExpAnimationComplete = characterDisplays.every((display) => display.remainingExpGain <= 0)
+  const hasLevelUp = useMemo(
+    () => resultCharacters.some((character) => character.levelUpCount > 0),
+    [resultCharacters],
+  )
 
   const completeExpAnimation = useCallback(() => {
     setCharacterDisplays(buildFinalDisplays(resultCharacters))
@@ -226,6 +231,11 @@ export function ResultOverlay({ party, rewards, money, onComplete }: ResultOverl
           return
         }
 
+        setResultStep(hasLevelUp ? 'stats' : 'money')
+        return
+      }
+
+      if (resultStep === 'stats') {
         setResultStep('money')
         return
       }
@@ -234,13 +244,13 @@ export function ResultOverlay({ party, rewards, money, onComplete }: ResultOverl
         closeMoneyResult()
       }
     })
-  }, [closeMoneyResult, completeExpAnimation, isExpAnimationComplete, resultStep])
+  }, [closeMoneyResult, completeExpAnimation, hasLevelUp, isExpAnimationComplete, resultStep])
 
   return (
     <div className={resultStep === 'closing' ? 'result-overlay is-closing' : 'result-overlay'}>
       <div className="result-mask" />
 
-      {resultStep === 'exp' && (
+      {(resultStep === 'exp' || resultStep === 'stats') && (
         <div className="result-panel" aria-label="リザルト画面">
           <div className="result-grid">
             {resultCharacters.map((character) => {
@@ -253,6 +263,8 @@ export function ResultOverlay({ party, rewards, money, onComplete }: ResultOverl
                 revealedLevelUpCount: character.levelUpCount,
                 remainingExpGain: 0,
               }
+
+              const showFinalValue = resultStep === 'stats'
 
               return (
                 <article className="result-card" key={character.id}>
@@ -270,18 +282,39 @@ export function ResultOverlay({ party, rewards, money, onComplete }: ResultOverl
                   <dl className="result-stats">
                     <div>
                       <dt>力</dt>
-                      <dd>{renderStatValue(display, 'power', character.initialStats.power)}</dd>
+                      <dd>
+                        {renderStatValue(
+                          display,
+                          'power',
+                          showFinalValue ? character.baseStats.power : character.initialStats.power,
+                          showFinalValue,
+                        )}
+                      </dd>
                     </div>
                     <div>
                       <dt>直守</dt>
                       <dd>
-                        {renderStatValue(display, 'directDefense', character.initialStats.directDefense)}
+                        {renderStatValue(
+                          display,
+                          'directDefense',
+                          showFinalValue
+                            ? character.baseStats.directDefense
+                            : character.initialStats.directDefense,
+                          showFinalValue,
+                        )}
                       </dd>
                     </div>
                     <div>
                       <dt>技</dt>
                       <dd>
-                        {renderStatValue(display, 'technique', character.initialStats.technique)}
+                        {renderStatValue(
+                          display,
+                          'technique',
+                          showFinalValue
+                            ? character.baseStats.technique
+                            : character.initialStats.technique,
+                          showFinalValue,
+                        )}
                       </dd>
                     </div>
                     <div>
@@ -290,7 +323,14 @@ export function ResultOverlay({ party, rewards, money, onComplete }: ResultOverl
                           ♥
                         </span>
                       </dt>
-                      <dd>{renderStatValue(display, 'hp', character.initialHp)}</dd>
+                      <dd>
+                        {renderStatValue(
+                          display,
+                          'hp',
+                          showFinalValue ? character.currentHp : character.initialHp,
+                          showFinalValue,
+                        )}
+                      </dd>
                     </div>
                   </dl>
 
