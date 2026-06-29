@@ -9,12 +9,19 @@
 }
 
 .game-root {
-  --jrpg-frame-color: #c97831;
+  --jrpg-frame-color: #cc975c;
+  --jrpg-window-outer-frame-color: #7b4d1a;
   --jrpg-frame-highlight: #f0aa45;
   --jrpg-window-bg: rgba(0, 0, 0, 0.7);
   --jrpg-stat-green: #35e66b;
   --jrpg-critical-red: #ff4d4d;
   --jrpg-window-padding: 10px 15px;
+  --jrpg-window-frame-width: 3px;
+  --jrpg-window-inner-frame-width: 3px;
+  --jrpg-window-frame-total-width: calc(
+    var(--jrpg-window-frame-width) * 2 + var(--jrpg-window-inner-frame-width)
+  );
+  --jrpg-window-inner-line-corner: var(--jrpg-frame-color);
   --jrpg-menu-item-padding: 0 4px;
   --main-menu-font-size: 1.35rem;
 }
@@ -161,12 +168,49 @@ button.is-selected {
   position: absolute;
   z-index: 1;
   box-sizing: border-box;
-  padding: var(--jrpg-window-padding);
-  border: 3px solid var(--jrpg-frame-color);
-  box-shadow: inset 0 0 0 2px #222;
-  background: var(--jrpg-window-bg);
+  padding: calc(10px + var(--jrpg-window-frame-total-width)) calc(15px + var(--jrpg-window-frame-total-width));
+  border: 0;
+  background: transparent;
   color: #fff;
+  isolation: isolate;
   text-shadow: 1px 1px 0 #111;
+}
+
+.jrpg-menu-window::before,
+.jrpg-menu-window::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.jrpg-menu-window::before {
+  inset: 0;
+  z-index: 0;
+  background:
+    linear-gradient(var(--jrpg-window-outer-frame-color), var(--jrpg-window-outer-frame-color)) top left var(--jrpg-window-frame-width) / calc(100% - var(--jrpg-window-frame-width) * 2) var(--jrpg-window-frame-width) no-repeat,
+    linear-gradient(var(--jrpg-window-outer-frame-color), var(--jrpg-window-outer-frame-color)) bottom left var(--jrpg-window-frame-width) / calc(100% - var(--jrpg-window-frame-width) * 2) var(--jrpg-window-frame-width) no-repeat,
+    linear-gradient(var(--jrpg-window-outer-frame-color), var(--jrpg-window-outer-frame-color)) top var(--jrpg-window-frame-width) left / var(--jrpg-window-frame-width) var(--jrpg-window-frame-width) no-repeat,
+    linear-gradient(var(--jrpg-window-outer-frame-color), var(--jrpg-window-outer-frame-color)) top var(--jrpg-window-frame-width) right / var(--jrpg-window-frame-width) var(--jrpg-window-frame-width) no-repeat,
+    linear-gradient(var(--jrpg-window-outer-frame-color), var(--jrpg-window-outer-frame-color)) bottom var(--jrpg-window-frame-width) left / var(--jrpg-window-frame-width) var(--jrpg-window-frame-width) no-repeat,
+    linear-gradient(var(--jrpg-window-outer-frame-color), var(--jrpg-window-outer-frame-color)) bottom var(--jrpg-window-frame-width) right / var(--jrpg-window-frame-width) var(--jrpg-window-frame-width) no-repeat,
+    linear-gradient(var(--jrpg-frame-color), var(--jrpg-frame-color)) top var(--jrpg-window-frame-width) left var(--jrpg-window-frame-width) / calc(100% - var(--jrpg-window-frame-width) * 2) var(--jrpg-window-frame-width) no-repeat,
+    linear-gradient(var(--jrpg-frame-color), var(--jrpg-frame-color)) bottom var(--jrpg-window-frame-width) left var(--jrpg-window-frame-width) / calc(100% - var(--jrpg-window-frame-width) * 2) var(--jrpg-window-frame-width) no-repeat,
+    linear-gradient(var(--jrpg-frame-color), var(--jrpg-frame-color)) top calc(var(--jrpg-window-frame-width) * 2) left / var(--jrpg-window-frame-width) calc(100% - var(--jrpg-window-frame-width) * 4) no-repeat,
+    linear-gradient(var(--jrpg-frame-color), var(--jrpg-frame-color)) top calc(var(--jrpg-window-frame-width) * 2) right / var(--jrpg-window-frame-width) calc(100% - var(--jrpg-window-frame-width) * 4) no-repeat,
+    linear-gradient(var(--jrpg-window-inner-line-corner), var(--jrpg-window-inner-line-corner)) top calc(var(--jrpg-window-frame-width) * 2) left var(--jrpg-window-frame-width) / var(--jrpg-window-inner-frame-width) var(--jrpg-window-inner-frame-width) no-repeat,
+    linear-gradient(var(--jrpg-window-inner-line-corner), var(--jrpg-window-inner-line-corner)) top calc(var(--jrpg-window-frame-width) * 2) right var(--jrpg-window-frame-width) / var(--jrpg-window-inner-frame-width) var(--jrpg-window-inner-frame-width) no-repeat,
+    linear-gradient(var(--jrpg-window-inner-line-corner), var(--jrpg-window-inner-line-corner)) bottom calc(var(--jrpg-window-frame-width) * 2) left var(--jrpg-window-frame-width) / var(--jrpg-window-inner-frame-width) var(--jrpg-window-inner-frame-width) no-repeat,
+    linear-gradient(var(--jrpg-window-inner-line-corner), var(--jrpg-window-inner-line-corner)) bottom calc(var(--jrpg-window-frame-width) * 2) right var(--jrpg-window-frame-width) / var(--jrpg-window-inner-frame-width) var(--jrpg-window-inner-frame-width) no-repeat,
+    linear-gradient(#222, #222) top calc(var(--jrpg-window-frame-width) * 2) left calc(var(--jrpg-window-frame-width) + var(--jrpg-window-inner-frame-width)) / calc(100% - var(--jrpg-window-frame-width) * 2 - var(--jrpg-window-inner-frame-width) * 2) var(--jrpg-window-inner-frame-width) no-repeat,
+    linear-gradient(#222, #222) bottom calc(var(--jrpg-window-frame-width) * 2) left calc(var(--jrpg-window-frame-width) + var(--jrpg-window-inner-frame-width)) / calc(100% - var(--jrpg-window-frame-width) * 2 - var(--jrpg-window-inner-frame-width) * 2) var(--jrpg-window-inner-frame-width) no-repeat,
+    linear-gradient(#222, #222) top calc(var(--jrpg-window-frame-width) * 2 + var(--jrpg-window-inner-frame-width)) left var(--jrpg-window-frame-width) / var(--jrpg-window-inner-frame-width) calc(100% - var(--jrpg-window-frame-width) * 4 - var(--jrpg-window-inner-frame-width) * 2) no-repeat,
+    linear-gradient(#222, #222) top calc(var(--jrpg-window-frame-width) * 2 + var(--jrpg-window-inner-frame-width)) right var(--jrpg-window-frame-width) / var(--jrpg-window-inner-frame-width) calc(100% - var(--jrpg-window-frame-width) * 4 - var(--jrpg-window-inner-frame-width) * 2) no-repeat,
+    linear-gradient(var(--jrpg-window-bg), var(--jrpg-window-bg)) top calc(var(--jrpg-window-frame-width) * 2 + var(--jrpg-window-inner-frame-width)) left calc(var(--jrpg-window-frame-width) + var(--jrpg-window-inner-frame-width)) / calc(100% - var(--jrpg-window-frame-width) * 2 - var(--jrpg-window-inner-frame-width) * 2) calc(100% - var(--jrpg-window-frame-width) * 4 - var(--jrpg-window-inner-frame-width) * 2) no-repeat;
+}
+
+.jrpg-menu-window>* {
+  position: relative;
+  z-index: 2;
 }
 
 .main-menu-text {
@@ -512,12 +556,49 @@ button.is-selected {
 
 .battle-window {
   position: absolute;
-  padding: var(--jrpg-window-padding);
-  border: 3px solid var(--jrpg-frame-color);
-  box-shadow: inset 0 0 0 2px #222;
-  background: var(--jrpg-window-bg);
+  padding: calc(10px + var(--jrpg-window-frame-total-width)) calc(15px + var(--jrpg-window-frame-total-width));
+  border: 0;
+  background: transparent;
   color: #fff;
+  isolation: isolate;
   text-shadow: 1px 1px 0 #111;
+}
+
+.battle-window::before,
+.battle-window::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.battle-window::before {
+  inset: 0;
+  z-index: 0;
+  background:
+    linear-gradient(var(--jrpg-window-outer-frame-color), var(--jrpg-window-outer-frame-color)) top left var(--jrpg-window-frame-width) / calc(100% - var(--jrpg-window-frame-width) * 2) var(--jrpg-window-frame-width) no-repeat,
+    linear-gradient(var(--jrpg-window-outer-frame-color), var(--jrpg-window-outer-frame-color)) bottom left var(--jrpg-window-frame-width) / calc(100% - var(--jrpg-window-frame-width) * 2) var(--jrpg-window-frame-width) no-repeat,
+    linear-gradient(var(--jrpg-window-outer-frame-color), var(--jrpg-window-outer-frame-color)) top var(--jrpg-window-frame-width) left / var(--jrpg-window-frame-width) var(--jrpg-window-frame-width) no-repeat,
+    linear-gradient(var(--jrpg-window-outer-frame-color), var(--jrpg-window-outer-frame-color)) top var(--jrpg-window-frame-width) right / var(--jrpg-window-frame-width) var(--jrpg-window-frame-width) no-repeat,
+    linear-gradient(var(--jrpg-window-outer-frame-color), var(--jrpg-window-outer-frame-color)) bottom var(--jrpg-window-frame-width) left / var(--jrpg-window-frame-width) var(--jrpg-window-frame-width) no-repeat,
+    linear-gradient(var(--jrpg-window-outer-frame-color), var(--jrpg-window-outer-frame-color)) bottom var(--jrpg-window-frame-width) right / var(--jrpg-window-frame-width) var(--jrpg-window-frame-width) no-repeat,
+    linear-gradient(var(--jrpg-frame-color), var(--jrpg-frame-color)) top var(--jrpg-window-frame-width) left var(--jrpg-window-frame-width) / calc(100% - var(--jrpg-window-frame-width) * 2) var(--jrpg-window-frame-width) no-repeat,
+    linear-gradient(var(--jrpg-frame-color), var(--jrpg-frame-color)) bottom var(--jrpg-window-frame-width) left var(--jrpg-window-frame-width) / calc(100% - var(--jrpg-window-frame-width) * 2) var(--jrpg-window-frame-width) no-repeat,
+    linear-gradient(var(--jrpg-frame-color), var(--jrpg-frame-color)) top calc(var(--jrpg-window-frame-width) * 2) left / var(--jrpg-window-frame-width) calc(100% - var(--jrpg-window-frame-width) * 4) no-repeat,
+    linear-gradient(var(--jrpg-frame-color), var(--jrpg-frame-color)) top calc(var(--jrpg-window-frame-width) * 2) right / var(--jrpg-window-frame-width) calc(100% - var(--jrpg-window-frame-width) * 4) no-repeat,
+    linear-gradient(var(--jrpg-window-inner-line-corner), var(--jrpg-window-inner-line-corner)) top calc(var(--jrpg-window-frame-width) * 2) left var(--jrpg-window-frame-width) / var(--jrpg-window-inner-frame-width) var(--jrpg-window-inner-frame-width) no-repeat,
+    linear-gradient(var(--jrpg-window-inner-line-corner), var(--jrpg-window-inner-line-corner)) top calc(var(--jrpg-window-frame-width) * 2) right var(--jrpg-window-frame-width) / var(--jrpg-window-inner-frame-width) var(--jrpg-window-inner-frame-width) no-repeat,
+    linear-gradient(var(--jrpg-window-inner-line-corner), var(--jrpg-window-inner-line-corner)) bottom calc(var(--jrpg-window-frame-width) * 2) left var(--jrpg-window-frame-width) / var(--jrpg-window-inner-frame-width) var(--jrpg-window-inner-frame-width) no-repeat,
+    linear-gradient(var(--jrpg-window-inner-line-corner), var(--jrpg-window-inner-line-corner)) bottom calc(var(--jrpg-window-frame-width) * 2) right var(--jrpg-window-frame-width) / var(--jrpg-window-inner-frame-width) var(--jrpg-window-inner-frame-width) no-repeat,
+    linear-gradient(#222, #222) top calc(var(--jrpg-window-frame-width) * 2) left calc(var(--jrpg-window-frame-width) + var(--jrpg-window-inner-frame-width)) / calc(100% - var(--jrpg-window-frame-width) * 2 - var(--jrpg-window-inner-frame-width) * 2) var(--jrpg-window-inner-frame-width) no-repeat,
+    linear-gradient(#222, #222) bottom calc(var(--jrpg-window-frame-width) * 2) left calc(var(--jrpg-window-frame-width) + var(--jrpg-window-inner-frame-width)) / calc(100% - var(--jrpg-window-frame-width) * 2 - var(--jrpg-window-inner-frame-width) * 2) var(--jrpg-window-inner-frame-width) no-repeat,
+    linear-gradient(#222, #222) top calc(var(--jrpg-window-frame-width) * 2 + var(--jrpg-window-inner-frame-width)) left var(--jrpg-window-frame-width) / var(--jrpg-window-inner-frame-width) calc(100% - var(--jrpg-window-frame-width) * 4 - var(--jrpg-window-inner-frame-width) * 2) no-repeat,
+    linear-gradient(#222, #222) top calc(var(--jrpg-window-frame-width) * 2 + var(--jrpg-window-inner-frame-width)) right var(--jrpg-window-frame-width) / var(--jrpg-window-inner-frame-width) calc(100% - var(--jrpg-window-frame-width) * 4 - var(--jrpg-window-inner-frame-width) * 2) no-repeat,
+    linear-gradient(var(--jrpg-window-bg), var(--jrpg-window-bg)) top calc(var(--jrpg-window-frame-width) * 2 + var(--jrpg-window-inner-frame-width)) left calc(var(--jrpg-window-frame-width) + var(--jrpg-window-inner-frame-width)) / calc(100% - var(--jrpg-window-frame-width) * 2 - var(--jrpg-window-inner-frame-width) * 2) calc(100% - var(--jrpg-window-frame-width) * 4 - var(--jrpg-window-inner-frame-width) * 2) no-repeat;
+}
+
+.battle-window>* {
+  position: relative;
+  z-index: 2;
 }
 
 .battle-hud {
@@ -527,17 +608,23 @@ button.is-selected {
   z-index: 3;
   display: flex;
   align-items: flex-start;
-  gap: 8px;
 }
 
 .battle-hud .battle-window {
-  position: static;
+  position: relative;
 }
 
 .battle-command-window {
   display: grid;
   gap: 4px;
   width: 100px;
+}
+
+.battle-command-window,
+.enemy-list-window,
+.party-hp-window,
+.battle-confirm-window {
+  font-size: var(--main-menu-font-size);
 }
 
 .battle-camera-tools {
@@ -582,7 +669,7 @@ button.is-selected {
   z-index: 3;
   display: grid;
   grid-template-columns: repeat(2, var(--enemy-list-column-width, 9em));
-  gap: 24px;
+  gap: 12px;
   width: max-content;
   box-sizing: border-box;
 }
@@ -648,12 +735,12 @@ button.is-selected {
 
 .battle-confirm-window p {
   margin: 0 0 2px;
-  font-size: 1.65rem;
+  font-size: inherit;
 }
 
 .battle-confirm-window button {
   font: inherit;
-  font-size: 1.55rem;
+  font-size: inherit;
   text-align: center;
   text-shadow: 1px 1px 0 #111;
 }
@@ -1156,7 +1243,6 @@ button.is-selected {
     top: 16px;
     left: 16px;
     right: 16px;
-    gap: 6px;
   }
 
   .battle-command-window {
