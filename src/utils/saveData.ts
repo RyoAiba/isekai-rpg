@@ -1,4 +1,5 @@
 import { normalizeCharacters } from './characterMigration'
+import { INITIAL_INVENTORY } from '../data/items'
 import type { GameSaveData } from '../types/saveData'
 
 const SAVE_KEY = 'isekai-rpg-save-data'
@@ -36,6 +37,7 @@ export function loadGame(): GameSaveData | null {
     return {
       party: normalizeCharacters(parsedSaveData.party),
       money: typeof parsedSaveData.money === 'number' ? parsedSaveData.money : 0,
+      items: Array.isArray(parsedSaveData.items) ? parsedSaveData.items : INITIAL_INVENTORY,
     }
   } catch {
     return null

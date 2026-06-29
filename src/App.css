@@ -236,13 +236,18 @@ button.is-selected {
   outline: none;
 }
 
-.main-menu-actions button.is-selected {
+.main-menu-actions button.is-selected,
+.main-menu-items-window button.is-selected,
+.main-menu-item-action-window button.is-selected,
+.main-menu-party-window li.is-selected {
   background: rgba(255, 255, 255, 0.18);
   outline: 2px solid currentColor;
   outline-offset: 0;
 }
 
-.main-menu-actions button:not(.is-selected) {
+.main-menu-actions button:not(.is-selected),
+.main-menu-items-window button:not(.is-selected),
+.main-menu-item-action-window button:not(.is-selected) {
   box-shadow: none;
 }
 
@@ -281,6 +286,56 @@ button.is-selected {
   white-space: nowrap;
 }
 
+.main-menu-items-window {
+  left: 332px;
+  top: 36px;
+  display: grid;
+  gap: 4px;
+  width: 300px;
+  padding: 16px 18px;
+}
+
+.main-menu-items-window button,
+.main-menu-item-action-window button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: var(--jrpg-menu-item-padding);
+  font-weight: 700;
+  outline: none;
+}
+
+.main-menu-items-window button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 3em;
+  gap: 12px;
+  text-align: left;
+}
+
+.main-menu-items-window button span:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.main-menu-items-window button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.main-menu-item-action-window {
+  left: 668px;
+  top: 36px;
+  display: grid;
+  gap: 4px;
+  width: 180px;
+  padding: 16px 18px;
+}
+
+.main-menu-item-action-window button {
+  text-align: left;
+}
+
 .main-menu-party-window {
   left: 36px;
   bottom: 36px;
@@ -302,7 +357,11 @@ button.is-selected {
   display: grid;
   align-content: start;
   gap: 2px;
-  padding: 0;
+  padding: 4px;
+}
+
+.main-menu-party-window li.is-inactive-character {
+  color: rgba(255, 255, 255, 0.38);
 }
 
 .main-menu-party-name,

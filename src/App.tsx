@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
+import { INITIAL_INVENTORY } from './data/items'
 import { party as initialParty } from './data/party'
+import { applyItemToCharacter, canUseItemOnCharacter } from './game/items'
 import { canStayAtInn, healPartyAtInn, INN_COST } from './game/inn'
 import { InputManager } from './input/InputManager'
 import { BattleScreen } from './screens/BattleScreen/BattleScreen'
@@ -8,6 +10,7 @@ import { MainMenuScreen } from './screens/MainMenuScreen/MainMenuScreen'
 import { TitleScreen } from './screens/TitleScreen/TitleScreen'
 import type { Character } from './types/character'
 import type { GameScreen } from './types/game'
+import type { InventoryItem, ItemId } from './types/item'
 import { clearSaveGame, hasSaveGame, loadGame, saveGame } from './utils/saveData'
 import './App.css'
 
@@ -18,11 +21,16 @@ function cloneParty(party: Character[]) {
   return party.map((character) => ({ ...character }))
 }
 
+function cloneInventory(items: InventoryItem[]) {
+  return items.map((item) => ({ ...item }))
+}
+
 function App() {
   const innFadeTimerRef = useRef<number | null>(null)
   const innHealTimerRef = useRef<number | null>(null)
   const [screen, setScreen] = useState<GameScreen>('title')
   const [party, setParty] = useState<Character[]>(() => cloneParty(initialParty))
+  const [items, setItems] = useState<InventoryItem[]>(() => cloneInventory(INITIAL_INVENTORY))
   const [money, setMoney] = useState(0)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [hasSaveData, setHasSaveData] = useState(() => hasSaveGame())
@@ -69,6 +77,7 @@ function App() {
   const startNewGame = () => {
     clearSaveGame()
     setParty(cloneParty(initialParty))
+    setItems(cloneInventory(INITIAL_INVENTORY))
     setMoney(0)
     setHasSaveData(false)
     setSaveError(null)
@@ -84,6 +93,7 @@ function App() {
     }
 
     setParty(cloneParty(saveData.party))
+    setItems(cloneInventory(saveData.items))
     setMoney(saveData.money)
     setHasSaveData(true)
     setSaveError(null)
@@ -94,7 +104,7 @@ function App() {
     setParty(nextParty)
     setMoney(nextMoney)
     setHasSaveData(true)
-    saveGame({ party: nextParty, money: nextMoney })
+    saveGame({ party: nextParty, money: nextMoney, items })
     setScreen('mainMenu')
   }
 
@@ -111,7 +121,7 @@ function App() {
       setParty(nextParty)
       setMoney(nextMoney)
       setHasSaveData(true)
-      saveGame({ party: nextParty, money: nextMoney })
+      saveGame({ party: nextParty, money: nextMoney, items })
     }, 550)
     innFadeTimerRef.current = window.setTimeout(() => setIsInnFadeActive(false), 1500)
 
@@ -121,11 +131,47 @@ function App() {
   const returnToMainMenu = (nextParty?: Character[]) => {
     if (nextParty) {
       setParty(nextParty)
-      saveGame({ party: nextParty, money })
+      saveGame({ party: nextParty, money, items })
       setHasSaveData(true)
     }
 
     setScreen('mainMenu')
+  }
+
+  const useInventoryItem = (itemId: ItemId, characterId: number) => {
+    const inventoryItem = items.find((item) => item.itemId === itemId)
+    const targetCharacter = party.find((character) => character.id === characterId)
+
+    if (!inventoryItem || inventoryItem.quantity <= 0 || !targetCharacter) {
+      return false
+    }
+
+    if (!canUseItemOnCharacter(itemId, targetCharacter)) {
+      return false
+    }
+
+    const nextParty = party.map((character) =>
+      character.id === characterId ? applyItemToCharacter(itemId, character) : character,
+    )
+    const nextItems = items.map((item) =>
+      item.itemId === itemId ? { ...item, quantity: Math.max(item.quantity - 1, 0) } : item,
+    )
+
+    setParty(nextParty)
+    setItems(nextItems)
+    setHasSaveData(true)
+    saveGame({ party: nextParty, money, items: nextItems })
+    return true
+  }
+
+  const discardInventoryItem = (itemId: ItemId) => {
+    const nextItems = items.map((item) =>
+      item.itemId === itemId ? { ...item, quantity: Math.max(item.quantity - 1, 0) } : item,
+    )
+
+    setItems(nextItems)
+    setHasSaveData(true)
+    saveGame({ party, money, items: nextItems })
   }
 
   return (
@@ -148,9 +194,12 @@ function App() {
             <MainMenuScreen
               money={money}
               party={party}
+              items={items}
               innCost={INN_COST}
               onBattle={() => setScreen('battle')}
               onStayAtInn={stayAtInn}
+              onUseItem={useInventoryItem}
+              onDiscardItem={discardInventoryItem}
               onBackToTitle={() => setScreen('title')}
             />
           )}
