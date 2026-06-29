@@ -40,6 +40,7 @@ import {
 } from '../../data/battleCommands'
 import { enemies as initialEnemies } from '../../data/enemies'
 import { useBattleCommandInput } from '../../hooks/useBattleCommandInput'
+import { InputManager } from '../../input/InputManager'
 import type { Character } from '../../types/character'
 import { isCriticalHp } from '../../utils/hp'
 import { toFullWidthNumber } from '../../utils/numberFormat'
@@ -51,11 +52,14 @@ type BattleScreenProps = {
   onEscape: (party?: Character[]) => void
 }
 
+type DefeatResultStep = 'none' | 'message' | 'closing'
+
 const isBattleDebugEnabled = import.meta.env.VITE_ENABLE_BATTLE_DEBUG === 'true'
 const BATTLE_START_DELAY_MS = 1000
 const BATTLE_ACTION_INTERVAL_MS = 1000
 const BATTLE_DEFEAT_CHAIN_INTERVAL_MS = 450
 const RESULT_OVERLAY_DELAY_MS = 1000
+const DEFEAT_RESULT_FADE_DURATION_MS = 1000
 const APPROACH_DURATION_MS = 560
 const RETURN_DURATION_MS = 520
 const DEFAULT_ATTACK_HIT_FRAME_MS = 320
@@ -63,11 +67,17 @@ const DEFAULT_ATTACK_HIT_FRAME_MS = 320
 export function BattleScreen({ party, money, onBattleComplete, onEscape }: BattleScreenProps) {
   const resultTimerRef = useRef<number | null>(null)
   const actionTimerRef = useRef<number | null>(null)
+  const defeatResultTimerRef = useRef<number | null>(null)
   const [battleState, setBattleState] = useState(() => createInitialBattleState(initialEnemies, party))
   const [isResultOverlayReady, setIsResultOverlayReady] = useState(false)
+  const [defeatResultStep, setDefeatResultStep] = useState<DefeatResultStep>('none')
   const [fieldCameraMode, setFieldCameraMode] = useState<BattleField3DCameraMode>('commandView')
   const isExecuting = battleState.phase === 'executing'
   const isResolving = battleState.phase === 'resolving'
+  const effectiveDefeatResultStep =
+    battleState.phase === 'resolving' && battleState.isDefeat && defeatResultStep === 'none'
+      ? 'entering'
+      : defeatResultStep
   const isSelectingCharacter =
     battleState.phase === 'characterCommand' ||
     battleState.phase === 'targetSelection' ||
@@ -148,6 +158,9 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
       }
       if (actionTimerRef.current !== null) {
         window.clearTimeout(actionTimerRef.current)
+      }
+      if (defeatResultTimerRef.current !== null) {
+        window.clearTimeout(defeatResultTimerRef.current)
       }
     }
   }, [])
@@ -250,16 +263,43 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
       return
     }
 
-    resultTimerRef.current = window.setTimeout(() => {
-      onEscape(battleState.party)
-    }, BATTLE_ACTION_INTERVAL_MS)
-
-    return () => {
-      if (resultTimerRef.current !== null) {
-        window.clearTimeout(resultTimerRef.current)
-      }
+    if (defeatResultStep !== 'none') {
+      return
     }
-  }, [battleState.isDefeat, battleState.party, battleState.phase, onEscape])
+
+    if (defeatResultTimerRef.current !== null) {
+      return
+    }
+
+    defeatResultTimerRef.current = window.setTimeout(() => {
+      setDefeatResultStep('message')
+      defeatResultTimerRef.current = null
+    }, DEFEAT_RESULT_FADE_DURATION_MS)
+  }, [battleState.isDefeat, battleState.phase, defeatResultStep])
+
+  const closeDefeatResult = useCallback(() => {
+    if (defeatResultStep !== 'message') {
+      return
+    }
+
+    setDefeatResultStep('closing')
+    defeatResultTimerRef.current = window.setTimeout(() => {
+      onEscape(battleState.party)
+      defeatResultTimerRef.current = null
+    }, DEFEAT_RESULT_FADE_DURATION_MS)
+  }, [battleState.party, defeatResultStep, onEscape])
+
+  useEffect(() => {
+    if (defeatResultStep !== 'message') {
+      return
+    }
+
+    return InputManager.subscribe(() => {
+      if (InputManager.confirm()) {
+        closeDefeatResult()
+      }
+    })
+  }, [closeDefeatResult, defeatResultStep])
 
   const executePartyCommand = useCallback(() => {
     const command = PARTY_COMMANDS[battleState.selectedPartyCommandIndex]
@@ -314,6 +354,11 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
       window.clearTimeout(actionTimerRef.current)
       actionTimerRef.current = null
     }
+    if (defeatResultTimerRef.current !== null) {
+      window.clearTimeout(defeatResultTimerRef.current)
+      defeatResultTimerRef.current = null
+    }
+    setDefeatResultStep('none')
   }, [])
 
   const debugWinBattle = useCallback(() => {
@@ -326,8 +371,7 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
     clearBattleTimers()
     const defeatedState = forceBattleDefeat(battleState)
     setBattleState(defeatedState)
-    onEscape(defeatedState.party)
-  }, [battleState, clearBattleTimers, onEscape])
+  }, [battleState, clearBattleTimers])
 
   const moveSelectedCommand = useCallback(
     (direction: 'previous' | 'next', commandCount: number) => {
@@ -567,6 +611,28 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
           money={money}
           onComplete={onBattleComplete}
         />
+      )}
+
+      {effectiveDefeatResultStep !== 'none' && (
+        <div className={`defeat-result-screen is-${effectiveDefeatResultStep}`} aria-label="全滅結果">
+          {(effectiveDefeatResultStep === 'message' || effectiveDefeatResultStep === 'closing') && (
+            <div className="defeat-result-window battle-window">
+              <p>全滅しました</p>
+              <p>メイン画面に戻ります</p>
+              <button
+                className="is-selected"
+                type="button"
+                onClick={closeDefeatResult}
+                disabled={effectiveDefeatResultStep === 'closing'}
+              >
+                はい
+              </button>
+            </div>
+          )}
+          {(effectiveDefeatResultStep === 'entering' || effectiveDefeatResultStep === 'closing') && (
+            <div className="result-fade-overlay" aria-hidden="true" />
+          )}
+        </div>
       )}
     </section>
   )

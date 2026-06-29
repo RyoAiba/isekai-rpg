@@ -646,7 +646,8 @@ button.is-selected {
 .battle-camera-tools button,
 .battle-resolution-tools button,
 .enemy-list-window button,
-.battle-confirm-window button {
+.battle-confirm-window button,
+.defeat-result-window button {
   border: 0;
   background: transparent;
   color: inherit;
@@ -659,7 +660,8 @@ button.is-selected {
 .battle-camera-tools button.is-selected,
 .battle-resolution-tools button.is-selected,
 .enemy-list-window button.is-selected,
-.battle-confirm-window button.is-selected {
+.battle-confirm-window button.is-selected,
+.defeat-result-window button.is-selected {
   background: rgba(255, 255, 255, 0.18);
   outline: 2px solid currentColor;
   outline-offset: 0;
@@ -800,6 +802,48 @@ button.is-selected {
   inset: 0;
   overflow: hidden;
   z-index: 8;
+}
+
+.defeat-result-screen {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 9;
+  background: transparent;
+}
+
+.defeat-result-screen.is-message,
+.defeat-result-screen.is-closing {
+  background: #000;
+}
+
+.defeat-result-window {
+  left: 50%;
+  top: 50%;
+  display: grid;
+  gap: 8px;
+  width: min(68vw, 360px);
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  color: #fff;
+  font-size: clamp(1rem, 2vw, 1.5rem);
+  line-height: 1.15;
+  text-align: center;
+  text-shadow: 2px 2px 0 #111;
+}
+
+.defeat-result-window p {
+  margin: 0;
+}
+
+.defeat-result-window button {
+  justify-self: center;
+  min-width: 120px;
+  margin-top: 4px;
+  font: inherit;
+  font-size: inherit;
+  text-align: center;
+  text-shadow: 1px 1px 0 #111;
 }
 
 
