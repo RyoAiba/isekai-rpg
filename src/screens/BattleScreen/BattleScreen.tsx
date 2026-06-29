@@ -42,6 +42,7 @@ import { enemies as initialEnemies } from '../../data/enemies'
 import { useBattleCommandInput } from '../../hooks/useBattleCommandInput'
 import type { Character } from '../../types/character'
 import { isCriticalHp } from '../../utils/hp'
+import { toFullWidthNumber } from '../../utils/numberFormat'
 
 type BattleScreenProps = {
   party: Character[]
@@ -479,9 +480,9 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
                     <span className="heart-mark" aria-label="HP">
                       ♥
                     </span>
-                    <span>{character.currentHp}</span>
+                    <span>{toFullWidthNumber(character.currentHp)}</span>
                     <span>/</span>
-                    <span>{getMaxHp(character)}</span>
+                    <span>{toFullWidthNumber(getMaxHp(character))}</span>
                   </span>
                 </li>
               ))}

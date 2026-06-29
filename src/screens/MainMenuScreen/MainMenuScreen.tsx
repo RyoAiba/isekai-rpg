@@ -3,6 +3,7 @@ import { getMaxHp } from '../../battle/StatCalculator'
 import { InputManager } from '../../input/InputManager'
 import type { Character } from '../../types/character'
 import { isCriticalHp } from '../../utils/hp'
+import { toFullWidthNumber } from '../../utils/numberFormat'
 
 type MainMenuScreenProps = {
   money: number
@@ -115,7 +116,7 @@ export function MainMenuScreen({
           >
             宿屋
           </button>
-          <span className="main-menu-inn-cost">{innCost}ルク</span>
+          <span className="main-menu-inn-cost">{toFullWidthNumber(innCost)}ルク</span>
         </div>
         <button
           className={activeSelectedIndex === 2 ? 'is-selected' : ''}
@@ -128,7 +129,7 @@ export function MainMenuScreen({
       </div>
 
       <aside className="main-menu-money-window jrpg-menu-window main-menu-text" aria-label="所持金">
-        <span>{money}</span>
+        <span>{toFullWidthNumber(money)}</span>
         <span>ルク</span>
       </aside>
 
@@ -145,9 +146,9 @@ export function MainMenuScreen({
                 }
               >
                 <span className="main-menu-party-heart" aria-label="HP">♥</span>
-                <span>{character.currentHp}/{getMaxHp(character)}</span>
+                <span>{toFullWidthNumber(character.currentHp)}/{toFullWidthNumber(getMaxHp(character))}</span>
               </span>
-              <span className="main-menu-party-level">レベル{character.level}</span>
+              <span className="main-menu-party-level">レベル{toFullWidthNumber(character.level)}</span>
             </li>
           ))}
         </ul>

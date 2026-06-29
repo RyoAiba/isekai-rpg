@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { BattleTimelineEvent } from '../../types/battle'
+import { toFullWidthNumber } from '../../utils/numberFormat'
 
 type BattleTimelineProps = {
   events: BattleTimelineEvent[]
@@ -26,7 +27,7 @@ export function BattleTimeline({ events }: BattleTimelineProps) {
     <aside className="battle-timeline battle-window" aria-label="Battle Timeline">
       <ol ref={timelineRef}>
         {events.map((event) => (
-          <li key={event.id}>{event.message}</li>
+          <li key={event.id}>{toFullWidthNumber(event.message)}</li>
         ))}
       </ol>
     </aside>

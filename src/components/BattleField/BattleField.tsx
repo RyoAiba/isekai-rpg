@@ -3,6 +3,7 @@ import { getActiveEffectDefinitions } from '../../battle/effects/EffectManager'
 import { getMaxHp } from '../../battle/StatCalculator'
 import type { BattleExecutionStep } from '../../types/battle'
 import type { BattleSpriteMotion, Character } from '../../types/character'
+import { toFullWidthNumber } from '../../utils/numberFormat'
 
 type BattleFieldProps = {
   party: Character[]
@@ -70,7 +71,9 @@ const ENEMY_PROMOTION_ROUTES_BY_LANE: Record<number, PromotionRoute> = {
 function getDebugInfo(character: Character, options: { showHp?: boolean } = {}) {
   const effectNames = getActiveEffectDefinitions(character).map((effect) => effect.name)
   const effectText = effectNames.length > 0 ? effectNames.join('・') : 'なし'
-  const hpText = options.showHp ? ' HP ' + character.currentHp + '/' + getMaxHp(character) : ''
+  const hpText = options.showHp
+    ? ' HP ' + toFullWidthNumber(character.currentHp) + '/' + toFullWidthNumber(getMaxHp(character))
+    : ''
 
   return character.range + ' / ' + effectText + hpText
 }

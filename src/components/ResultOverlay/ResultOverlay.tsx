@@ -7,6 +7,11 @@ import { InputManager } from '../../input/InputManager'
 import type { BattleRewards } from '../../types/battle'
 import type { Character } from '../../types/character'
 import type { Stats } from '../../types/stats'
+import {
+  toFullWidthNumber,
+  toFullWidthPaddedNumber,
+  toFullWidthSignedNumber,
+} from '../../utils/numberFormat'
 
 type ResultOverlayProps = {
   party: Character[]
@@ -119,9 +124,9 @@ function toSavedParty(resultCharacters: ResultCharacter[]): Character[] {
     position: character.position,
     battleSprite: character.battleSprite
       ? {
-          ...character.battleSprite,
-          motions: { ...character.battleSprite.motions },
-        }
+        ...character.battleSprite,
+        motions: { ...character.battleSprite.motions },
+      }
       : undefined,
   }))
 }
@@ -162,12 +167,16 @@ function renderStatValue(
   value: number,
   showFinalValue: boolean,
 ) {
-  if (display.revealedLevelUpCount > 0 && !showFinalValue) {
+  if (!showFinalValue) {
+    if (display.revealedLevelUpCount === 0) {
+      return 'ーーー'
+    }
+
     const gainPerLevel = key === 'hp' ? 8 : 2
-    return `+${gainPerLevel * display.revealedLevelUpCount}`
+    return toFullWidthSignedNumber(gainPerLevel * display.revealedLevelUpCount)
   }
 
-  return value
+  return toFullWidthNumber(value)
 }
 
 export function ResultOverlay({ party, rewards, money, onComplete }: ResultOverlayProps) {
@@ -181,11 +190,6 @@ export function ResultOverlay({ party, rewards, money, onComplete }: ResultOverl
   const updatedParty = useMemo(() => toSavedParty(resultCharacters), [resultCharacters])
   const nextMoney = money + rewards.money
   const isExpAnimationComplete = characterDisplays.every((display) => display.remainingExpGain <= 0)
-  const hasLevelUp = useMemo(
-    () => resultCharacters.some((character) => character.levelUpCount > 0),
-    [resultCharacters],
-  )
-
   const completeExpAnimation = useCallback(() => {
     setCharacterDisplays(buildFinalDisplays(resultCharacters))
   }, [resultCharacters])
@@ -240,7 +244,7 @@ export function ResultOverlay({ party, rewards, money, onComplete }: ResultOverl
           return
         }
 
-        setResultStep(hasLevelUp ? 'stats' : 'money')
+        setResultStep('stats')
         return
       }
 
@@ -253,7 +257,7 @@ export function ResultOverlay({ party, rewards, money, onComplete }: ResultOverl
         closeMoneyResult()
       }
     })
-  }, [closeMoneyResult, completeExpAnimation, hasLevelUp, isExpAnimationComplete, resultStep])
+  }, [closeMoneyResult, completeExpAnimation, isExpAnimationComplete, resultStep])
 
   return (
     <div className={resultStep === 'closing' ? 'result-overlay is-closing' : 'result-overlay'}>
@@ -358,9 +362,9 @@ export function ResultOverlay({ party, rewards, money, onComplete }: ResultOverl
                     <h2>{character.name}</h2>
                     <p>
                       <span>Lv.</span>
-                      <strong>{display.level}</strong>
-                      <span>Exp</span>
-                      <strong>{display.exp}</strong>
+                      <strong>{toFullWidthPaddedNumber(display.level, 2)}</strong>
+                      <span>Exp.</span>
+                      <strong>{toFullWidthNumber(display.exp)}</strong>
                     </p>
                   </div>
                 </article>
@@ -374,10 +378,10 @@ export function ResultOverlay({ party, rewards, money, onComplete }: ResultOverl
 
       {resultStep === 'money' && (
         <button className="result-money-window battle-window" type="button" onClick={closeMoneyResult}>
-          <span>{rewards.money}ルクを</span>
+          <span>{toFullWidthNumber(rewards.money)}ルクを</span>
           <span>手に入れた</span>
           <span>現在の所持金は</span>
-          <span>{nextMoney}ルクです</span>
+          <span>{toFullWidthNumber(nextMoney)}ルクです</span>
         </button>
       )}
     </div>
