@@ -15,7 +15,7 @@
   --jrpg-window-bg: rgba(0, 0, 0, 0.7);
   --jrpg-stat-green: #35e66b;
   --jrpg-critical-red: #ff4d4d;
-  --jrpg-window-padding: 10px 15px;
+  --jrpg-window-padding: 16px;
   --jrpg-window-frame-width: 3px;
   --jrpg-window-inner-frame-width: 3px;
   --jrpg-window-frame-total-width: calc(var(--jrpg-window-frame-width) * 2 + var(--jrpg-window-inner-frame-width));
@@ -166,7 +166,7 @@ button.is-selected {
   position: absolute;
   z-index: 1;
   box-sizing: border-box;
-  padding: calc(10px + var(--jrpg-window-frame-total-width)) calc(15px + var(--jrpg-window-frame-total-width));
+  padding: calc(var(--jrpg-window-padding) + var(--jrpg-window-frame-total-width));
   border: 0;
   background: transparent;
   color: #fff;
@@ -222,7 +222,6 @@ button.is-selected {
   display: grid;
   gap: 4px;
   width: 260px;
-  padding: 16px 18px;
 }
 
 .main-menu-actions button {
@@ -282,17 +281,34 @@ button.is-selected {
   gap: 12px;
   width: 250px;
   min-height: 72px;
-  padding: 14px 24px;
   white-space: nowrap;
 }
 
-.main-menu-items-window {
-  left: 332px;
+.main-menu-item-title-window {
+  left: 36px;
   top: 36px;
   display: grid;
+  place-items: center;
+  color: #fff;
+  min-width: 140px;
+  min-height: 72px;
+  pointer-events: none;
+}
+
+.main-menu-items-window {
+  right: 36px;
+  top: 36px;
+  display: grid;
+  align-content: start;
   gap: 4px;
-  width: 300px;
-  padding: 16px 18px;
+  width: 550px;
+  height: 553px;
+}
+
+.main-menu-items-window.is-single-item {
+  top: 36px;
+  height: auto;
+  min-height: 72px;
 }
 
 .main-menu-items-window button,
@@ -323,13 +339,18 @@ button.is-selected {
   cursor: not-allowed;
 }
 
+.main-menu-empty-items {
+  margin: 0;
+  padding: var(--jrpg-menu-item-padding);
+  color: rgba(255, 255, 255, 0.72);
+}
+
 .main-menu-item-action-window {
-  left: 668px;
-  top: 36px;
+  right: 425px;
+  top: 150px;
   display: grid;
   gap: 4px;
-  width: 180px;
-  padding: 16px 18px;
+  width: 160px;
 }
 
 .main-menu-item-action-window button {
@@ -340,7 +361,20 @@ button.is-selected {
   left: 36px;
   bottom: 36px;
   width: 550px;
-  padding: 22px 28px;
+}
+
+.main-menu-screen.is-item-menu-open .main-menu-party-window {
+  bottom: 131px;
+}
+
+.main-menu-item-description-window {
+  left: 36px;
+  right: 36px;
+  bottom: 36px;
+  color: #fff;
+  min-height: 72px;
+  display: flex;
+  align-items: center;
 }
 
 .main-menu-party-window ul {
@@ -613,7 +647,7 @@ button.is-selected {
 
 .battle-window {
   position: absolute;
-  padding: calc(10px + var(--jrpg-window-frame-total-width)) calc(15px + var(--jrpg-window-frame-total-width));
+  padding: calc(var(--jrpg-window-padding) + var(--jrpg-window-frame-total-width));
   border: 0;
   background: transparent;
   color: #fff;

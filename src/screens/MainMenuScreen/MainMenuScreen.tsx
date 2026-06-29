@@ -25,6 +25,7 @@ type MainMenuAction = (typeof menuActions)[number]
 const itemActionCommands = ['use', 'discard'] as const
 type ItemActionCommand = (typeof itemActionCommands)[number]
 type MenuMode = 'main' | 'itemList' | 'itemAction' | 'itemTarget'
+const itemMenuModes: MenuMode[] = ['itemList', 'itemAction', 'itemTarget']
 
 export function MainMenuScreen({
   money,
@@ -43,7 +44,12 @@ export function MainMenuScreen({
   const [selectedItemActionIndex, setSelectedItemActionIndex] = useState(0)
   const [selectedPartyIndex, setSelectedPartyIndex] = useState(0)
   const canUseInn = money >= innCost
-  const selectedItem = items[selectedItemIndex]
+  const isItemMenuOpen = itemMenuModes.includes(menuMode)
+  const visibleItems = items.filter((item) => item.quantity > 0)
+  const activeSelectedItemIndex = Math.min(selectedItemIndex, Math.max(visibleItems.length - 1, 0))
+  const selectedItem = visibleItems[activeSelectedItemIndex]
+  const selectedItemDefinition = selectedItem ? getItemDefinition(selectedItem.itemId) : undefined
+  const isSingleItemWindow = menuMode === 'itemAction' || menuMode === 'itemTarget'
 
   const isActionEnabled = useCallback((action: MainMenuAction) => {
     return action !== 'inn' || canUseInn
@@ -90,9 +96,11 @@ export function MainMenuScreen({
 
   const moveItemSelection = useCallback((direction: -1 | 1) => {
     setSelectedItemIndex((currentIndex) =>
-      items.length === 0 ? 0 : (currentIndex + direction + items.length) % items.length,
+      visibleItems.length === 0
+        ? 0
+        : (currentIndex + direction + visibleItems.length) % visibleItems.length,
     )
-  }, [items.length])
+  }, [visibleItems.length])
 
   const moveItemActionSelection = useCallback((direction: -1 | 1) => {
     setSelectedItemActionIndex((currentIndex) =>
@@ -147,7 +155,11 @@ export function MainMenuScreen({
       return
     }
 
-    onUseItem(selectedItem.itemId, targetCharacter.id)
+    const didUseItem = onUseItem(selectedItem.itemId, targetCharacter.id)
+
+    if (didUseItem && selectedItem.quantity <= 1) {
+      setMenuMode('itemList')
+    }
   }, [onUseItem, party, selectedItem, selectedPartyIndex])
 
   const activeSelectedIndex = isActionEnabled(menuActions[selectedIndex])
@@ -226,72 +238,88 @@ export function MainMenuScreen({
   ])
 
   return (
-    <section className="screen main-menu-screen">
+    <section className={isItemMenuOpen ? 'screen main-menu-screen is-item-menu-open' : 'screen main-menu-screen'}>
       <div className="main-menu-mask" aria-hidden="true" />
 
-      <div className="main-menu-actions jrpg-menu-window main-menu-text" aria-label="メインメニュー">
-        <button
-          className={activeSelectedIndex === 0 ? 'is-selected' : ''}
-          type="button"
-          onClick={onBattle}
-          onMouseEnter={() => setSelectedIndex(0)}
-        >
-          戦闘する
-        </button>
-        <button
-          className={activeSelectedIndex === 1 ? 'is-selected' : ''}
-          type="button"
-          onClick={() => executeAction('items')}
-          onMouseEnter={() => setSelectedIndex(1)}
-        >
-          どうぐ
-        </button>
-        <div className="main-menu-inn-action">
+      {isItemMenuOpen ? (
+        <aside className="main-menu-item-title-window jrpg-menu-window main-menu-text" aria-label="どうぐ">
+          <span>どうぐ</span>
+        </aside>
+      ) : (
+        <div className="main-menu-actions jrpg-menu-window main-menu-text" aria-label="メインメニュー">
           <button
-            className={activeSelectedIndex === 2 ? 'is-selected' : ''}
+            className={activeSelectedIndex === 0 ? 'is-selected' : ''}
             type="button"
-            onClick={() => {
-              if (canUseInn) {
-                onStayAtInn()
-              }
-            }}
-            onMouseEnter={() => {
-              if (canUseInn) {
-                setSelectedIndex(2)
-              }
-            }}
-            disabled={!canUseInn}
+            onClick={onBattle}
+            onMouseEnter={() => setSelectedIndex(0)}
           >
-            宿屋
+            戦闘する
           </button>
-          <span className="main-menu-inn-cost">{toFullWidthNumber(innCost)}ルク</span>
+          <button
+            className={activeSelectedIndex === 1 ? 'is-selected' : ''}
+            type="button"
+            onClick={() => executeAction('items')}
+            onMouseEnter={() => setSelectedIndex(1)}
+          >
+            どうぐ
+          </button>
+          <div className="main-menu-inn-action">
+            <button
+              className={activeSelectedIndex === 2 ? 'is-selected' : ''}
+              type="button"
+              onClick={() => {
+                if (canUseInn) {
+                  onStayAtInn()
+                }
+              }}
+              onMouseEnter={() => {
+                if (canUseInn) {
+                  setSelectedIndex(2)
+                }
+              }}
+              disabled={!canUseInn}
+            >
+              宿屋
+            </button>
+            <span className="main-menu-inn-cost">{toFullWidthNumber(innCost)}ルク</span>
+          </div>
+          <button
+            className={activeSelectedIndex === 3 ? 'is-selected' : ''}
+            type="button"
+            onClick={onBackToTitle}
+            onMouseEnter={() => setSelectedIndex(3)}
+          >
+            タイトルへ戻る
+          </button>
         </div>
-        <button
-          className={activeSelectedIndex === 3 ? 'is-selected' : ''}
-          type="button"
-          onClick={onBackToTitle}
-          onMouseEnter={() => setSelectedIndex(3)}
-        >
-          タイトルへ戻る
-        </button>
-      </div>
+      )}
 
-      {menuMode !== 'main' && (
-        <aside className="main-menu-items-window jrpg-menu-window main-menu-text" aria-label="どうぐ一覧">
-          {items.map((item, index) => {
+      {isItemMenuOpen && (
+        <aside
+          className={
+            isSingleItemWindow
+              ? 'main-menu-items-window is-single-item jrpg-menu-window main-menu-text'
+              : 'main-menu-items-window jrpg-menu-window main-menu-text'
+          }
+          aria-label="どうぐ一覧"
+        >
+          {visibleItems.length === 0 && (
+            <p className="main-menu-empty-items">なにもありません</p>
+          )}
+          {(isSingleItemWindow && selectedItem ? [selectedItem] : visibleItems).map((item, index) => {
             const definition = getItemDefinition(item.itemId)
+            const itemIndex = isSingleItemWindow ? activeSelectedItemIndex : index
 
             return (
               <button
-                className={selectedItemIndex === index && menuMode === 'itemList' ? 'is-selected' : ''}
+                className={activeSelectedItemIndex === itemIndex && menuMode === 'itemList' ? 'is-selected' : ''}
                 type="button"
                 key={item.itemId}
                 onClick={() => {
-                  setSelectedItemIndex(index)
+                  setSelectedItemIndex(itemIndex)
                   openItemAction(item)
                 }}
-                onMouseEnter={() => setSelectedItemIndex(index)}
-                disabled={item.quantity <= 0}
+                onMouseEnter={() => setSelectedItemIndex(itemIndex)}
               >
                 <span>{definition?.name ?? item.itemId}</span>
                 <span>{toFullWidthNumber(item.quantity)}</span>
@@ -320,10 +348,12 @@ export function MainMenuScreen({
         </aside>
       )}
 
-      <aside className="main-menu-money-window jrpg-menu-window main-menu-text" aria-label="所持金">
-        <span>{toFullWidthNumber(money)}</span>
-        <span>ルク</span>
-      </aside>
+      {!isItemMenuOpen && (
+        <aside className="main-menu-money-window jrpg-menu-window main-menu-text" aria-label="所持金">
+          <span>{toFullWidthNumber(money)}</span>
+          <span>ルク</span>
+        </aside>
+      )}
 
       <aside className="main-menu-party-window jrpg-menu-window main-menu-text" aria-label="味方一覧">
         <ul>
@@ -364,6 +394,12 @@ export function MainMenuScreen({
           })}
         </ul>
       </aside>
+
+      {isItemMenuOpen && (
+        <aside className="main-menu-item-description-window jrpg-menu-window main-menu-text" aria-label="どうぐ説明">
+          <span>{selectedItemDefinition?.description ?? ''}</span>
+        </aside>
+      )}
     </section>
   )
 }

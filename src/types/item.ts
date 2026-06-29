@@ -8,4 +8,5 @@ export type InventoryItem = {
 export type ItemDefinition = {
   id: ItemId
   name: string
+  description: string
 }
