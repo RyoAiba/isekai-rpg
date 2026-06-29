@@ -627,18 +627,26 @@ button.is-selected {
   font-size: var(--main-menu-font-size);
 }
 
-.battle-camera-tools {
+.battle-debug-tools {
   left: 20px;
   top: 20px;
   z-index: 5;
   display: flex;
-  gap: 6px;
-  opacity: 0.82;
+  gap: 0;
+  position: absolute;
+}
+
+.battle-camera-tools,
+.battle-resolution-tools {
+  position: relative;
+  display: flex;
+  gap: 0;
   font-size: 0.6rem;
 }
 
 .battle-command-window button,
 .battle-camera-tools button,
+.battle-resolution-tools button,
 .enemy-list-window button,
 .battle-confirm-window button {
   border: 0;
@@ -651,6 +659,7 @@ button.is-selected {
 
 .battle-command-window button.is-selected,
 .battle-camera-tools button.is-selected,
+.battle-resolution-tools button.is-selected,
 .enemy-list-window button.is-selected,
 .battle-confirm-window button.is-selected {
   background: rgba(255, 255, 255, 0.18);
@@ -918,7 +927,7 @@ button.is-selected {
 
 .result-stats {
   display: grid;
-  grid-template-rows: repeat(4, 1fr);
+  grid-template-rows: repeat(5, 1fr);
   align-self: stretch;
   gap: 4px;
   margin: 0;
@@ -974,8 +983,6 @@ button.is-selected {
   width: min(58vw, 360px);
   transform: translate(-50%, -50%);
   z-index: 3;
-  border: 3px solid var(--jrpg-frame-color);
-  background: rgba(0, 0, 0, 0.78);
   color: #fff;
   font: inherit;
   font-size: clamp(1rem, 2vw, 1.5rem);

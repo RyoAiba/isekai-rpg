@@ -13,6 +13,8 @@ import {
   createInitialBattleState,
   executeNextBattleAction,
   finishAnimatedPartyAction,
+  forceBattleDefeat,
+  forceBattleVictory,
   getActiveCharacter,
   getAlivePartyMembers,
   moveSelection,
@@ -302,6 +304,30 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
     setBattleState((currentState) => applyConfirmCommand(currentState, command.id, currentState.party))
   }, [battleState.selectedConfirmIndex])
 
+  const clearBattleTimers = useCallback(() => {
+    if (resultTimerRef.current !== null) {
+      window.clearTimeout(resultTimerRef.current)
+      resultTimerRef.current = null
+    }
+    if (actionTimerRef.current !== null) {
+      window.clearTimeout(actionTimerRef.current)
+      actionTimerRef.current = null
+    }
+  }, [])
+
+  const debugWinBattle = useCallback(() => {
+    clearBattleTimers()
+    setIsResultOverlayReady(true)
+    setBattleState((currentState) => forceBattleVictory(currentState))
+  }, [clearBattleTimers])
+
+  const debugLoseBattle = useCallback(() => {
+    clearBattleTimers()
+    const defeatedState = forceBattleDefeat(battleState)
+    setBattleState(defeatedState)
+    onEscape(defeatedState.party)
+  }, [battleState, clearBattleTimers, onEscape])
+
   const moveSelectedCommand = useCallback(
     (direction: 'previous' | 'next', commandCount: number) => {
       setBattleState((currentState) => moveSelection(currentState, direction, commandCount))
@@ -339,18 +365,31 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
     >
       <BattleField3D cameraMode={fieldCameraMode} />
 
-      <div className="battle-camera-tools battle-window" aria-label="3Dカメラ確認用">
-        {(['commandView', 'actionView'] as BattleField3DCameraMode[]).map((cameraMode) => (
-          <button
-            className={fieldCameraMode === cameraMode ? 'is-selected' : ''}
-            type="button"
-            key={cameraMode}
-            onClick={() => setFieldCameraMode(cameraMode)}
-          >
-            {cameraMode}
-          </button>
-        ))}
-      </div>
+      {isBattleDebugEnabled && (
+        <div className="battle-debug-tools">
+          <div className="battle-camera-tools battle-window" aria-label="3Dカメラ確認用">
+            {(['commandView', 'actionView'] as BattleField3DCameraMode[]).map((cameraMode) => (
+              <button
+                className={fieldCameraMode === cameraMode ? 'is-selected' : ''}
+                type="button"
+                key={cameraMode}
+                onClick={() => setFieldCameraMode(cameraMode)}
+              >
+                {cameraMode}
+              </button>
+            ))}
+          </div>
+
+          <div className="battle-resolution-tools battle-window" aria-label="戦闘デバッグ操作">
+            <button type="button" onClick={debugWinBattle}>
+              即勝利
+            </button>
+            <button type="button" onClick={debugLoseBattle}>
+              即敗北
+            </button>
+          </div>
+        </div>
+      )}
 
       <BattleField
         party={battleState.party}

@@ -20,6 +20,7 @@ type LevelUpGains = {
   power: number
   directDefense: number
   technique: number
+  speed: number
 }
 
 type ResultCharacter = Character & {
@@ -57,6 +58,7 @@ function buildResultCharacters(party: Character[], expReward: number): ResultCha
           power: 2 * levelUpCount,
           directDefense: 2 * levelUpCount,
           technique: 2 * levelUpCount,
+          speed: 2 * levelUpCount,
         }
         : undefined
 
@@ -71,6 +73,7 @@ function buildResultCharacters(party: Character[], expReward: number): ResultCha
           power: gains.power,
           directDefense: gains.directDefense,
           technique: gains.technique,
+          speed: gains.speed,
         })
         : initialStats,
       initialExp: character.exp,
@@ -319,6 +322,17 @@ export function ResultOverlay({ party, rewards, money, onComplete }: ResultOverl
                           showFinalValue
                             ? character.baseStats.technique
                             : character.initialStats.technique,
+                          showFinalValue,
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>速</dt>
+                      <dd>
+                        {renderStatValue(
+                          display,
+                          'speed',
+                          showFinalValue ? character.baseStats.speed : character.initialStats.speed,
                           showFinalValue,
                         )}
                       </dd>

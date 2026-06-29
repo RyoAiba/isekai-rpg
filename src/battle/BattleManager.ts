@@ -245,6 +245,62 @@ function calculateRewards(enemies: Character[]): BattleRewards {
   }
 }
 
+export function forceBattleVictory(state: BattleState): BattleState {
+  const timeline = [...state.timeline]
+  addTimeline(timeline, 'デバッグ: 戦闘に勝利した')
+
+  return {
+    ...state,
+    phase: 'resolving',
+    actions: [],
+    actionQueue: [],
+    timeline,
+    executingActionIndex: 0,
+    executionStep: undefined,
+    executingCharacterId: undefined,
+    executingEnemyId: undefined,
+    executingTargetEnemyId: undefined,
+    lastActionDefeatedEnemy: false,
+    lastDefeatedEnemyId: undefined,
+    promotedEnemyId: undefined,
+    lastDamagedEnemyId: undefined,
+    lastDamagedCharacterId: undefined,
+    rewards: calculateRewards(state.enemies),
+    isVictory: true,
+    isDefeat: false,
+  }
+}
+
+export function forceBattleDefeat(state: BattleState): BattleState {
+  const timeline = [...state.timeline]
+  const defeatedParty = state.party.map((character) => ({
+    ...character,
+    currentHp: 0,
+  }))
+  addTimeline(timeline, 'デバッグ: 味方は全滅した')
+
+  return {
+    ...state,
+    phase: 'resolving',
+    party: defeatedParty,
+    actions: [],
+    actionQueue: [],
+    timeline,
+    executingActionIndex: 0,
+    executionStep: undefined,
+    executingCharacterId: undefined,
+    executingEnemyId: undefined,
+    executingTargetEnemyId: undefined,
+    lastActionDefeatedEnemy: false,
+    lastDefeatedEnemyId: undefined,
+    promotedEnemyId: undefined,
+    lastDamagedEnemyId: undefined,
+    lastDamagedCharacterId: undefined,
+    isVictory: false,
+    isDefeat: true,
+  }
+}
+
 function applyPoisonDamageToGroup(characters: Character[], timeline: BattleTimelineEvent[]) {
   let lastDamagedCharacterId: number | undefined
   let hasDamage = false
