@@ -242,7 +242,7 @@ button.is-selected {
 .main-menu-party-window {
   left: 36px;
   bottom: 36px;
-  width: 610px;
+  width: 550px;
   padding: 22px 28px;
 }
 
@@ -251,8 +251,8 @@ button.is-selected {
   grid-auto-flow: column;
   grid-template-rows: repeat(3, 1fr);
   grid-auto-columns: minmax(0, 1fr);
-  column-gap: 44px;
-  row-gap: 0;
+  column-gap: 20px;
+  row-gap: 8px;
   list-style: none;
 }
 
@@ -260,7 +260,6 @@ button.is-selected {
   display: grid;
   align-content: start;
   gap: 2px;
-  min-height: 92px;
   padding: 0;
 }
 
@@ -291,9 +290,7 @@ button.is-selected {
   text-shadow: 1px 1px 0 #111;
 }
 
-.main-menu-party-level {
-  margin-top: 2px;
-}
+.main-menu-party-level {}
 
 .battle-screen {
   position: relative;
