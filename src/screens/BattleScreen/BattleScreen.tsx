@@ -53,6 +53,7 @@ type BattleScreenProps = {
 }
 
 type DefeatResultStep = 'none' | 'message' | 'closing'
+type EscapeResultStep = 'none' | 'message' | 'closing'
 
 const isBattleDebugEnabled = import.meta.env.VITE_ENABLE_BATTLE_DEBUG === 'true'
 const BATTLE_START_DELAY_MS = 1000
@@ -60,6 +61,7 @@ const BATTLE_ACTION_INTERVAL_MS = 1000
 const BATTLE_DEFEAT_CHAIN_INTERVAL_MS = 450
 const RESULT_OVERLAY_DELAY_MS = 1000
 const DEFEAT_RESULT_FADE_DURATION_MS = 1000
+const ESCAPE_RESULT_FADE_DURATION_MS = 1000
 const APPROACH_DURATION_MS = 560
 const RETURN_DURATION_MS = 520
 const DEFAULT_ATTACK_HIT_FRAME_MS = 320
@@ -68,9 +70,11 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
   const resultTimerRef = useRef<number | null>(null)
   const actionTimerRef = useRef<number | null>(null)
   const defeatResultTimerRef = useRef<number | null>(null)
+  const escapeResultTimerRef = useRef<number | null>(null)
   const [battleState, setBattleState] = useState(() => createInitialBattleState(initialEnemies, party))
   const [isResultOverlayReady, setIsResultOverlayReady] = useState(false)
   const [defeatResultStep, setDefeatResultStep] = useState<DefeatResultStep>('none')
+  const [escapeResultStep, setEscapeResultStep] = useState<EscapeResultStep>('none')
   const [fieldCameraMode, setFieldCameraMode] = useState<BattleField3DCameraMode>('commandView')
   const isExecuting = battleState.phase === 'executing'
   const isResolving = battleState.phase === 'resolving'
@@ -82,10 +86,12 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
     battleState.phase === 'characterCommand' ||
     battleState.phase === 'targetSelection' ||
     (battleState.phase === 'confirmActions' && !battleState.isAutoCommandConfirm)
+  const isShowingEscapeResult = escapeResultStep !== 'none'
   const showsBattleWindows =
-    battleState.phase === 'partyCommand' ||
-    battleState.phase === 'characterCommand' ||
-    battleState.phase === 'targetSelection'
+    !isShowingEscapeResult &&
+    (battleState.phase === 'partyCommand' ||
+      battleState.phase === 'characterCommand' ||
+      battleState.phase === 'targetSelection')
   const activeCharacter = getActiveCharacter(battleState, battleState.party)
   const activePartyListCharacter = useMemo(() => {
     if (activeCharacter) {
@@ -161,6 +167,9 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
       }
       if (defeatResultTimerRef.current !== null) {
         window.clearTimeout(defeatResultTimerRef.current)
+      }
+      if (escapeResultTimerRef.current !== null) {
+        window.clearTimeout(escapeResultTimerRef.current)
       }
     }
   }, [])
@@ -301,6 +310,42 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
     })
   }, [closeDefeatResult, defeatResultStep])
 
+  const showEscapeResult = useCallback(() => {
+    if (escapeResultStep !== 'none') {
+      return
+    }
+
+    setEscapeResultStep('message')
+  }, [escapeResultStep])
+
+  const closeEscapeResult = useCallback(() => {
+    if (escapeResultStep !== 'message') {
+      return
+    }
+
+    if (escapeResultTimerRef.current !== null) {
+      return
+    }
+
+    setEscapeResultStep('closing')
+    escapeResultTimerRef.current = window.setTimeout(() => {
+      onEscape(battleState.party)
+      escapeResultTimerRef.current = null
+    }, ESCAPE_RESULT_FADE_DURATION_MS)
+  }, [battleState.party, escapeResultStep, onEscape])
+
+  useEffect(() => {
+    if (escapeResultStep !== 'message') {
+      return
+    }
+
+    return InputManager.subscribe(() => {
+      if (InputManager.confirm()) {
+        closeEscapeResult()
+      }
+    })
+  }, [closeEscapeResult, escapeResultStep])
+
   const executePartyCommand = useCallback(() => {
     const command = PARTY_COMMANDS[battleState.selectedPartyCommandIndex]
 
@@ -309,14 +354,14 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
     }
 
     if (command.id === 'escape') {
-      onEscape(battleState.party)
+      showEscapeResult()
       return
     }
 
     setBattleState((currentState) =>
       applyPartyCommand(currentState, command.id, currentState.party, currentState.enemies),
     )
-  }, [battleState.party, battleState.selectedPartyCommandIndex, onEscape])
+  }, [battleState.selectedPartyCommandIndex, showEscapeResult])
 
   const selectCharacterCommand = useCallback(() => {
     const command = DEFAULT_CHARACTER_COMMANDS[battleState.selectedCharacterCommandIndex]
@@ -345,6 +390,10 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
     setBattleState((currentState) => applyConfirmCommand(currentState, command.id, currentState.party))
   }, [battleState.selectedConfirmIndex])
 
+  const cancelConfirmCommand = useCallback(() => {
+    setBattleState((currentState) => applyConfirmCommand(currentState, 'no', currentState.party))
+  }, [])
+
   const clearBattleTimers = useCallback(() => {
     if (resultTimerRef.current !== null) {
       window.clearTimeout(resultTimerRef.current)
@@ -358,7 +407,12 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
       window.clearTimeout(defeatResultTimerRef.current)
       defeatResultTimerRef.current = null
     }
+    if (escapeResultTimerRef.current !== null) {
+      window.clearTimeout(escapeResultTimerRef.current)
+      escapeResultTimerRef.current = null
+    }
     setDefeatResultStep('none')
+    setEscapeResultStep('none')
   }, [])
 
   const debugWinBattle = useCallback(() => {
@@ -400,6 +454,8 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
     onConfirmCommandConfirm: executeConfirmCommand,
     onCancelCharacterCommand: cancelCharacterCommand,
     onCancelTargetSelection: cancelTarget,
+    onCancelConfirmCommand: cancelConfirmCommand,
+    disabled: escapeResultStep !== 'none',
   })
 
   return (
@@ -468,7 +524,7 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
                     onClick={() => {
                       setBattleState((currentState) => setSelectedPartyCommand(currentState, index))
                       if (command.id === 'escape') {
-                        onEscape(battleState.party)
+                        showEscapeResult()
                         return
                       }
                       setBattleState((currentState) =>
@@ -602,7 +658,7 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
         </div>
       )}
 
-      {isBattleDebugEnabled && <BattleTimeline events={battleState.timeline} />}
+      {isBattleDebugEnabled && !isShowingEscapeResult && <BattleTimeline events={battleState.timeline} />}
 
       {battleState.phase === 'resolving' && battleState.isVictory && isResultOverlayReady && (
         <ResultOverlay
@@ -632,6 +688,22 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
           {(effectiveDefeatResultStep === 'entering' || effectiveDefeatResultStep === 'closing') && (
             <div className="result-fade-overlay" aria-hidden="true" />
           )}
+        </div>
+      )}
+
+      {escapeResultStep !== 'none' && (
+        <div className="escape-result-screen" aria-label="逃走結果">
+          {(escapeResultStep === 'message' || escapeResultStep === 'closing') && (
+            <button
+              className="escape-result-window battle-window"
+              type="button"
+              onClick={closeEscapeResult}
+              disabled={escapeResultStep === 'closing'}
+            >
+              にげきれた
+            </button>
+          )}
+          {escapeResultStep === 'closing' && <div className="result-fade-overlay" aria-hidden="true" />}
         </div>
       )}
     </section>

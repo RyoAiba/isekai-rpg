@@ -6,6 +6,7 @@ import type { BattleState } from '../types/battle'
 type UseBattleCommandInputParams = {
   battleState: BattleState
   targetCount: number
+  disabled?: boolean
   onMoveSelection: (direction: 'previous' | 'next', commandCount: number) => void
   onMoveTargetSelection: (direction: 'up' | 'down' | 'left' | 'right') => void
   onPartyCommandConfirm: () => void
@@ -14,6 +15,7 @@ type UseBattleCommandInputParams = {
   onConfirmCommandConfirm: () => void
   onCancelCharacterCommand: () => void
   onCancelTargetSelection: () => void
+  onCancelConfirmCommand: () => void
 }
 
 function getCommandCount(battleState: BattleState, targetCount: number) {
@@ -35,6 +37,7 @@ function getCommandCount(battleState: BattleState, targetCount: number) {
 export function useBattleCommandInput({
   battleState,
   targetCount,
+  disabled = false,
   onMoveSelection,
   onMoveTargetSelection,
   onPartyCommandConfirm,
@@ -43,9 +46,14 @@ export function useBattleCommandInput({
   onConfirmCommandConfirm,
   onCancelCharacterCommand,
   onCancelTargetSelection,
+  onCancelConfirmCommand,
 }: UseBattleCommandInputParams) {
   useEffect(() => {
     return InputManager.subscribe(() => {
+      if (disabled) {
+        return
+      }
+
       if (battleState.phase === 'executing' || battleState.phase === 'resolving') {
         return
       }
@@ -96,10 +104,16 @@ export function useBattleCommandInput({
       if (InputManager.cancel() && battleState.phase === 'targetSelection') {
         onCancelTargetSelection()
       }
+
+      if (InputManager.cancel() && battleState.phase === 'confirmActions') {
+        onCancelConfirmCommand()
+      }
     })
   }, [
     battleState,
+    disabled,
     onCancelCharacterCommand,
+    onCancelConfirmCommand,
     onCancelTargetSelection,
     onCharacterCommandConfirm,
     onConfirmCommandConfirm,

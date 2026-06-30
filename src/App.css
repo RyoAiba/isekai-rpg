@@ -183,7 +183,7 @@ button.is-selected {
 
 .jrpg-menu-window::before {
   inset: 0;
-  z-index: 0;
+  z-index: -1;
   background:
     linear-gradient(var(--jrpg-window-outer-frame-color), var(--jrpg-window-outer-frame-color)) top left var(--jrpg-window-frame-width) / calc(100% - var(--jrpg-window-frame-width) * 2) var(--jrpg-window-frame-width) no-repeat,
     linear-gradient(var(--jrpg-window-outer-frame-color), var(--jrpg-window-outer-frame-color)) bottom left var(--jrpg-window-frame-width) / calc(100% - var(--jrpg-window-frame-width) * 2) var(--jrpg-window-frame-width) no-repeat,
@@ -664,7 +664,7 @@ button.is-selected {
 
 .battle-window::before {
   inset: 0;
-  z-index: 0;
+  z-index: -1;
   background:
     linear-gradient(var(--jrpg-window-outer-frame-color), var(--jrpg-window-outer-frame-color)) top left var(--jrpg-window-frame-width) / calc(100% - var(--jrpg-window-frame-width) * 2) var(--jrpg-window-frame-width) no-repeat,
     linear-gradient(var(--jrpg-window-outer-frame-color), var(--jrpg-window-outer-frame-color)) bottom left var(--jrpg-window-frame-width) / calc(100% - var(--jrpg-window-frame-width) * 2) var(--jrpg-window-frame-width) no-repeat,
@@ -905,6 +905,14 @@ button.is-selected {
   background: transparent;
 }
 
+.escape-result-screen {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 9;
+  pointer-events: auto;
+}
+
 .defeat-result-screen.is-message,
 .defeat-result-screen.is-closing {
   background: #000;
@@ -937,6 +945,28 @@ button.is-selected {
   font-size: inherit;
   text-align: center;
   text-shadow: 1px 1px 0 #111;
+}
+
+.escape-result-window {
+  left: 50%;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: min(58vw, 360px);
+  min-height: 72px;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  color: #fff;
+  font: inherit;
+  font-size: clamp(1rem, 2vw, 1.5rem);
+  font-weight: normal;
+  line-height: 1.15;
+  text-align: center;
+  text-shadow: 2px 2px 0 #111;
+}
+
+.escape-result-window:disabled {
+  cursor: wait;
 }
 
 
