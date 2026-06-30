@@ -26,8 +26,14 @@ type BattleFieldProps = {
 
 type MeleeApproachRoute = {
   targetXVw: number
+  targetXPx: number
   targetYPx: number
   arcHeightPx: number
+}
+
+type FormationOffset = {
+  xPx: number
+  yPx: number
 }
 
 type PromotionRoute = {
@@ -35,7 +41,18 @@ type PromotionRoute = {
   startY: string
 }
 
-const ALLEN_APPROACH_ROUTES_BY_FRONT_ENEMY_SLOT: Record<number, MeleeApproachRoute> = {
+const PARTY_FORMATION_OFFSETS_BY_SLOT: Record<number, FormationOffset> = {
+  1: { xPx: -30, yPx: 2 },
+  2: { xPx: -16, yPx: -14 },
+  3: { xPx: -2, yPx: -30 },
+  4: { xPx: 18, yPx: 28 },
+  5: { xPx: 32, yPx: 12 },
+  6: { xPx: 46, yPx: -4 },
+}
+
+const PARTY_MELEE_REFERENCE_SLOT = 1
+
+const BASE_PARTY_MELEE_ROUTES_BY_FRONT_ENEMY_SLOT: Record<number, Omit<MeleeApproachRoute, 'targetXPx'>> = {
   1: {
     targetXVw: -48,
     targetYPx: -36,
@@ -99,19 +116,46 @@ function getBattleSpriteMotion(
   return 'idle'
 }
 
+function formatVwPx(vw: number, px: number) {
+  if (px === 0) {
+    return `${vw}vw`
+  }
+
+  const operator = px > 0 ? '+' : '-'
+
+  return `calc(${vw}vw ${operator} ${Math.abs(px)}px)`
+}
+
+function getPartyMeleeRoute(partyFormationSlot: number, targetEnemySlot: number) {
+  const baseRoute = BASE_PARTY_MELEE_ROUTES_BY_FRONT_ENEMY_SLOT[targetEnemySlot]
+  const referenceOffset = PARTY_FORMATION_OFFSETS_BY_SLOT[PARTY_MELEE_REFERENCE_SLOT]
+  const currentOffset = PARTY_FORMATION_OFFSETS_BY_SLOT[partyFormationSlot]
+
+  if (!baseRoute || !referenceOffset || !currentOffset) {
+    return undefined
+  }
+
+  return {
+    ...baseRoute,
+    targetXPx: referenceOffset.xPx - currentOffset.xPx,
+    targetYPx: baseRoute.targetYPx + referenceOffset.yPx - currentOffset.yPx,
+  }
+}
+
 function getMeleeRouteStyle(route: MeleeApproachRoute): CSSProperties {
   const style = {
-    '--melee-target-x': `${route.targetXVw}vw`,
+    '--melee-target-x': formatVwPx(route.targetXVw, route.targetXPx),
     '--melee-target-y': `${route.targetYPx}px`,
   } as CSSProperties
 
   for (let step = 10; step <= 90; step += 10) {
     const progress = step / 100
     const x = route.targetXVw * progress
+    const xPx = route.targetXPx * progress
     const y = route.targetYPx * progress - route.arcHeightPx * 4 * progress * (1 - progress)
 
     Object.assign(style, {
-      [`--melee-step-${step}-x`]: `${x}vw`,
+      [`--melee-step-${step}-x`]: formatVwPx(x, xPx),
       [`--melee-step-${step}-y`]: `${y}px`,
     })
   }
@@ -224,8 +268,9 @@ export function BattleField({
             : enemies.find((enemy) => enemy.id === actingTargetEnemyId)
           const targetLane = targetEnemy?.lane
             ?? (actingTargetEnemyId === undefined ? undefined : frontEnemySlotById.get(actingTargetEnemyId))
-          const meleeRoute = character.id === 1 && targetLane !== undefined
-            ? ALLEN_APPROACH_ROUTES_BY_FRONT_ENEMY_SLOT[targetLane]
+          const partyFormationSlot = index + 1
+          const meleeRoute = battleSprite && targetLane !== undefined
+            ? getPartyMeleeRoute(partyFormationSlot, targetLane)
             : undefined
           const isMeleeActingCharacter =
             character.id === actingCharacterId && executionStep !== undefined && meleeRoute !== undefined

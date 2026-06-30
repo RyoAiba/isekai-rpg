@@ -574,7 +574,7 @@ button.is-selected {
 }
 
 .party-unit.is-melee-approach {
-  animation: melee-approach 560ms linear forwards;
+  animation: melee-approach 420ms linear forwards;
 }
 
 .party-unit.is-melee-attack {
@@ -582,7 +582,7 @@ button.is-selected {
 }
 
 .party-unit.is-melee-return {
-  animation: melee-return 520ms linear forwards;
+  animation: melee-return 420ms linear forwards;
 }
 
 .battle-side-enemy .formation-slot-1 {

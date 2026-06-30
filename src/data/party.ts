@@ -1,5 +1,5 @@
 import type { Character } from '../types/character'
-import { allenBattleSprite } from './battleSprites'
+import { allenBattleSprite, jowyBattleSprite } from './battleSprites'
 
 export const party: Character[] = [
   {
@@ -25,7 +25,7 @@ export const party: Character[] = [
   },
   {
     id: 2,
-    name: 'ブランカ',
+    name: 'ジョウイ',
     level: 3,
     exp: 180,
     currentHp: 67,
@@ -42,6 +42,7 @@ export const party: Character[] = [
     activeEffects: [],
     range: 'S',
     position: 'front',
+    battleSprite: jowyBattleSprite,
   },
   {
     id: 3,

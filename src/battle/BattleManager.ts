@@ -680,7 +680,7 @@ export function canUseAnimatedPartyAction(state: BattleState) {
   const attacker = state.party.find((character) => character.id === action.characterId)
   const target = resolveActionTarget(state.enemies, action.targetId)
 
-  return attacker?.id === 1
+  return attacker?.battleSprite !== undefined
     && (attacker.range === 'S' || attacker.range === 'M')
     && target?.position === 'front'
     && attacker.currentHp > 0
