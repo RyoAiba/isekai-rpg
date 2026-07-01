@@ -27,7 +27,6 @@ type BattleFieldProps = {
 }
 
 type MeleeApproachRoute = {
-  targetXVw: number
   targetXPx: number
   targetYPx: number
   arcHeightPx: number
@@ -43,7 +42,12 @@ type PromotionRoute = {
   startY: string
 }
 
-const PARTY_FORMATION_OFFSETS_BY_SLOT: Record<number, FormationOffset> = {
+const PARTY_GRID_COLUMN_WIDTH_PX = 112
+const PARTY_GRID_ROW_HEIGHT_PX = 74
+const PARTY_GRID_COLUMN_GAP_PX = 12
+const PARTY_GRID_ROW_GAP_PX = 16
+
+const PARTY_FORMATION_TRANSFORMS_BY_SLOT: Record<number, FormationOffset> = {
   1: { xPx: -30, yPx: 2 },
   2: { xPx: -16, yPx: -14 },
   3: { xPx: -2, yPx: -30 },
@@ -54,21 +58,21 @@ const PARTY_FORMATION_OFFSETS_BY_SLOT: Record<number, FormationOffset> = {
 
 const PARTY_MELEE_REFERENCE_SLOT = 1
 
-const BASE_PARTY_MELEE_ROUTES_BY_FRONT_ENEMY_SLOT: Record<number, Omit<MeleeApproachRoute, 'targetXPx'>> = {
+const BASE_PARTY_MELEE_ROUTES_BY_FRONT_ENEMY_SLOT: Record<number, MeleeApproachRoute> = {
   1: {
-    targetXVw: -48,
-    targetYPx: -36,
-    arcHeightPx: 145,
+    targetXPx: -636,
+    targetYPx: -90,
+    arcHeightPx: 168,
   },
   2: {
-    targetXVw: -38,
-    targetYPx: -66,
-    arcHeightPx: 165,
+    targetXPx: -498,
+    targetYPx: -106,
+    arcHeightPx: 184,
   },
   3: {
-    targetXVw: -28,
-    targetYPx: -96,
-    arcHeightPx: 185,
+    targetXPx: -360,
+    targetYPx: -122,
+    arcHeightPx: 200,
   },
 }
 
@@ -118,20 +122,10 @@ function getBattleSpriteMotion(
   return 'idle'
 }
 
-function formatVwPx(vw: number, px: number) {
-  if (px === 0) {
-    return `${vw}vw`
-  }
-
-  const operator = px > 0 ? '+' : '-'
-
-  return `calc(${vw}vw ${operator} ${Math.abs(px)}px)`
-}
-
 function getPartyMeleeRoute(partyFormationSlot: number, targetEnemySlot: number) {
   const baseRoute = BASE_PARTY_MELEE_ROUTES_BY_FRONT_ENEMY_SLOT[targetEnemySlot]
-  const referenceOffset = PARTY_FORMATION_OFFSETS_BY_SLOT[PARTY_MELEE_REFERENCE_SLOT]
-  const currentOffset = PARTY_FORMATION_OFFSETS_BY_SLOT[partyFormationSlot]
+  const referenceOffset = getPartyFormationOffset(PARTY_MELEE_REFERENCE_SLOT)
+  const currentOffset = getPartyFormationOffset(partyFormationSlot)
 
   if (!baseRoute || !referenceOffset || !currentOffset) {
     return undefined
@@ -139,25 +133,40 @@ function getPartyMeleeRoute(partyFormationSlot: number, targetEnemySlot: number)
 
   return {
     ...baseRoute,
-    targetXPx: referenceOffset.xPx - currentOffset.xPx,
+    targetXPx: baseRoute.targetXPx + referenceOffset.xPx - currentOffset.xPx,
     targetYPx: baseRoute.targetYPx + referenceOffset.yPx - currentOffset.yPx,
+  }
+}
+
+function getPartyFormationOffset(partyFormationSlot: number) {
+  const transform = PARTY_FORMATION_TRANSFORMS_BY_SLOT[partyFormationSlot]
+
+  if (!transform) {
+    return undefined
+  }
+
+  const columnIndex = (partyFormationSlot - 1) % 3
+  const rowIndex = Math.floor((partyFormationSlot - 1) / 3)
+
+  return {
+    xPx: columnIndex * (PARTY_GRID_COLUMN_WIDTH_PX + PARTY_GRID_COLUMN_GAP_PX) + transform.xPx,
+    yPx: rowIndex * (PARTY_GRID_ROW_HEIGHT_PX + PARTY_GRID_ROW_GAP_PX) + transform.yPx,
   }
 }
 
 function getMeleeRouteStyle(route: MeleeApproachRoute): CSSProperties {
   const style = {
-    '--melee-target-x': formatVwPx(route.targetXVw, route.targetXPx),
+    '--melee-target-x': `${route.targetXPx}px`,
     '--melee-target-y': `${route.targetYPx}px`,
   } as CSSProperties
 
   for (let step = 10; step <= 90; step += 10) {
     const progress = step / 100
-    const x = route.targetXVw * progress
     const xPx = route.targetXPx * progress
     const y = route.targetYPx * progress - route.arcHeightPx * 4 * progress * (1 - progress)
 
     Object.assign(style, {
-      [`--melee-step-${step}-x`]: formatVwPx(x, xPx),
+      [`--melee-step-${step}-x`]: `${xPx}px`,
       [`--melee-step-${step}-y`]: `${y}px`,
     })
   }
@@ -320,9 +329,9 @@ export function BattleField({
               style={
                 meleeRoute
                   ? {
-                      ...getMeleeRouteStyle(meleeRoute),
-                      '--melee-start-delay': `${activePartyMotion?.startDelayMs ?? 0}ms`,
-                    } as CSSProperties
+                    ...getMeleeRouteStyle(meleeRoute),
+                    '--melee-start-delay': `${activePartyMotion?.startDelayMs ?? 0}ms`,
+                  } as CSSProperties
                   : undefined
               }
             >
