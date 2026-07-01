@@ -48,6 +48,7 @@ const EXP_PER_LEVEL = 1000
 const EXP_COUNT_STEP = 24
 const EXP_COUNT_INTERVAL_MS = 18
 const RESULT_CLOSE_DELAY_MS = 1000
+const isMouseAdvanceEnabled = import.meta.env.DEV
 
 function buildResultCharacters(party: Character[], expReward: number): ResultCharacter[] {
   return party.map((character) => {
@@ -190,6 +191,7 @@ export function ResultOverlay({ party, rewards, money, onComplete }: ResultOverl
   const updatedParty = useMemo(() => toSavedParty(resultCharacters), [resultCharacters])
   const nextMoney = money + rewards.money
   const isExpAnimationComplete = characterDisplays.every((display) => display.remainingExpGain <= 0)
+  const canClickAdvance = isMouseAdvanceEnabled && resultStep !== 'closing'
   const completeExpAnimation = useCallback(() => {
     setCharacterDisplays(buildFinalDisplays(resultCharacters))
   }, [resultCharacters])
@@ -204,6 +206,27 @@ export function ResultOverlay({ party, rewards, money, onComplete }: ResultOverl
       onComplete(updatedParty, nextMoney)
     }, RESULT_CLOSE_DELAY_MS)
   }, [nextMoney, onComplete, updatedParty])
+
+  const advanceResult = useCallback(() => {
+    if (resultStep === 'exp') {
+      if (!isExpAnimationComplete) {
+        completeExpAnimation()
+        return
+      }
+
+      setResultStep('stats')
+      return
+    }
+
+    if (resultStep === 'stats') {
+      setResultStep('money')
+      return
+    }
+
+    if (resultStep === 'money') {
+      closeMoneyResult()
+    }
+  }, [closeMoneyResult, completeExpAnimation, isExpAnimationComplete, resultStep])
 
   useEffect(() => {
     if (resultStep !== 'exp' || isExpAnimationComplete) {
@@ -238,29 +261,17 @@ export function ResultOverlay({ party, rewards, money, onComplete }: ResultOverl
         return
       }
 
-      if (resultStep === 'exp') {
-        if (!isExpAnimationComplete) {
-          completeExpAnimation()
-          return
-        }
-
-        setResultStep('stats')
-        return
-      }
-
-      if (resultStep === 'stats') {
-        setResultStep('money')
-        return
-      }
-
-      if (resultStep === 'money') {
-        closeMoneyResult()
-      }
+      advanceResult()
     })
-  }, [closeMoneyResult, completeExpAnimation, isExpAnimationComplete, resultStep])
+  }, [advanceResult])
 
   return (
-    <div className={resultStep === 'closing' ? 'result-overlay is-closing' : 'result-overlay'}>
+    <div
+      className={resultStep === 'closing' ? 'result-overlay is-closing' : 'result-overlay'}
+      onClick={canClickAdvance ? advanceResult : undefined}
+      role={canClickAdvance ? 'button' : undefined}
+      tabIndex={canClickAdvance ? 0 : undefined}
+    >
       <div className="result-mask" />
 
       {(resultStep === 'exp' || resultStep === 'stats') && (
@@ -377,12 +388,12 @@ export function ResultOverlay({ party, rewards, money, onComplete }: ResultOverl
       {resultStep === 'closing' && <div className="result-fade-overlay" aria-hidden="true" />}
 
       {resultStep === 'money' && (
-        <button className="result-money-window battle-window" type="button" onClick={closeMoneyResult}>
+        <div className="result-money-window battle-window">
           <span>{toFullWidthNumber(rewards.money)}ルクを</span>
           <span>手に入れた</span>
           <span>現在の所持金は</span>
           <span>{toFullWidthNumber(nextMoney)}ルクです</span>
-        </button>
+        </div>
       )}
     </div>
   )

@@ -148,8 +148,8 @@ export function MainMenuScreen({
     setMenuMode('itemList')
   }, [onDiscardItem, selectedItem])
 
-  const applySelectedItemToTarget = useCallback(() => {
-    const targetCharacter = party[selectedPartyIndex]
+  const applyItemToTarget = useCallback((targetIndex: number) => {
+    const targetCharacter = party[targetIndex]
 
     if (!selectedItem || !targetCharacter) {
       return
@@ -160,7 +160,21 @@ export function MainMenuScreen({
     if (didUseItem && selectedItem.quantity <= 1) {
       setMenuMode('itemList')
     }
-  }, [onUseItem, party, selectedItem, selectedPartyIndex])
+  }, [onUseItem, party, selectedItem])
+
+  const applySelectedItemToTarget = useCallback(() => {
+    applyItemToTarget(selectedPartyIndex)
+  }, [applyItemToTarget, selectedPartyIndex])
+
+  const cancelCurrentMenu = useCallback(() => {
+    if (menuMode === 'itemTarget') {
+      setMenuMode('itemAction')
+    } else if (menuMode === 'itemAction') {
+      setMenuMode('itemList')
+    } else if (menuMode === 'itemList') {
+      setMenuMode('main')
+    }
+  }, [menuMode])
 
   const activeSelectedIndex = isActionEnabled(menuActions[selectedIndex])
     ? selectedIndex
@@ -213,18 +227,13 @@ export function MainMenuScreen({
       }
 
       if (InputManager.cancel()) {
-        if (menuMode === 'itemTarget') {
-          setMenuMode('itemAction')
-        } else if (menuMode === 'itemAction') {
-          setMenuMode('itemList')
-        } else if (menuMode === 'itemList') {
-          setMenuMode('main')
-        }
+        cancelCurrentMenu()
       }
     })
   }, [
     activeSelectedIndex,
     applySelectedItemToTarget,
+    cancelCurrentMenu,
     executeAction,
     executeItemAction,
     menuMode,
@@ -232,14 +241,17 @@ export function MainMenuScreen({
     moveItemSelection,
     movePartySelection,
     moveSelection,
-    openItemAction,
     openSelectedItemAction,
     selectedItemActionIndex,
   ])
 
   return (
     <section className={isItemMenuOpen ? 'screen main-menu-screen is-item-menu-open' : 'screen main-menu-screen'}>
-      <div className="main-menu-mask" aria-hidden="true" />
+      <div
+        className={isItemMenuOpen ? 'main-menu-mask is-click-cancel-enabled' : 'main-menu-mask'}
+        aria-hidden="true"
+        onClick={isItemMenuOpen ? cancelCurrentMenu : undefined}
+      />
 
       {isItemMenuOpen ? (
         <aside className="main-menu-item-title-window jrpg-menu-window main-menu-text" aria-label="どうぐ">
@@ -317,7 +329,9 @@ export function MainMenuScreen({
                 key={item.itemId}
                 onClick={() => {
                   setSelectedItemIndex(itemIndex)
-                  openItemAction(item)
+                  if (menuMode === 'itemList') {
+                    openItemAction(item)
+                  }
                 }}
                 onMouseEnter={() => setSelectedItemIndex(itemIndex)}
               >
@@ -338,7 +352,9 @@ export function MainMenuScreen({
               key={action}
               onClick={() => {
                 setSelectedItemActionIndex(index)
-                executeItemAction(action)
+                if (menuMode === 'itemAction') {
+                  executeItemAction(action)
+                }
               }}
               onMouseEnter={() => setSelectedItemActionIndex(index)}
             >
@@ -371,11 +387,19 @@ export function MainMenuScreen({
                   menuMode === 'itemTarget' && !canUseSelectedItem ? 'is-inactive-character' : '',
                 ].filter(Boolean).join(' ')}
                 key={character.id}
+                onClick={() => {
+                  if (menuMode === 'itemTarget') {
+                    setSelectedPartyIndex(index)
+                    applyItemToTarget(index)
+                  }
+                }}
                 onMouseEnter={() => {
                   if (menuMode === 'itemTarget') {
                     setSelectedPartyIndex(index)
                   }
                 }}
+                role={menuMode === 'itemTarget' ? 'button' : undefined}
+                tabIndex={menuMode === 'itemTarget' ? 0 : undefined}
               >
                 <span className="main-menu-party-name">{character.name}</span>
                 <span

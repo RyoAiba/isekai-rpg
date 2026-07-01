@@ -80,6 +80,10 @@ button {
   cursor: pointer;
 }
 
+[role="button"] {
+  cursor: pointer;
+}
+
 button.is-selected {
   outline: 2px solid currentColor;
   outline-offset: 2px;
@@ -160,6 +164,11 @@ button.is-selected {
   z-index: 0;
   background: rgba(0, 0, 0, 0.1);
   pointer-events: none;
+}
+
+.main-menu-mask.is-click-cancel-enabled {
+  cursor: pointer;
+  pointer-events: auto;
 }
 
 .jrpg-menu-window {
@@ -705,6 +714,15 @@ button.is-selected {
   position: relative;
 }
 
+.battle-click-cancel-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
 .battle-command-window {
   display: grid;
   gap: 4px;
@@ -964,11 +982,6 @@ button.is-selected {
   text-align: center;
   text-shadow: 2px 2px 0 #111;
 }
-
-.escape-result-window:disabled {
-  cursor: wait;
-}
-
 
 .screen-fade-overlay,
 .result-fade-overlay {

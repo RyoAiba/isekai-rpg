@@ -56,6 +56,7 @@ type DefeatResultStep = 'none' | 'message' | 'closing'
 type EscapeResultStep = 'none' | 'message' | 'closing'
 
 const isBattleDebugEnabled = import.meta.env.VITE_ENABLE_BATTLE_DEBUG === 'true'
+const isMouseAdvanceEnabled = import.meta.env.DEV
 const BATTLE_START_DELAY_MS = 1000
 const BATTLE_ACTION_INTERVAL_MS = 1000
 const BATTLE_DEFEAT_CHAIN_INTERVAL_MS = 450
@@ -88,6 +89,12 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
     battleState.phase === 'targetSelection' ||
     (battleState.phase === 'confirmActions' && !battleState.isAutoCommandConfirm)
   const isShowingEscapeResult = escapeResultStep !== 'none'
+  const canClickEscapeResult = isMouseAdvanceEnabled && escapeResultStep === 'message'
+  const canClickCancelBattleCommand =
+    escapeResultStep === 'none' &&
+    (battleState.phase === 'characterCommand' ||
+      battleState.phase === 'targetSelection' ||
+      battleState.phase === 'confirmActions')
   const showsBattleWindows =
     !isShowingEscapeResult &&
     (battleState.phase === 'partyCommand' ||
@@ -395,6 +402,22 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
     setBattleState((currentState) => applyConfirmCommand(currentState, 'no', currentState.party))
   }, [])
 
+  const cancelCurrentBattleCommand = useCallback(() => {
+    if (battleState.phase === 'characterCommand') {
+      cancelCharacterCommand()
+      return
+    }
+
+    if (battleState.phase === 'targetSelection') {
+      cancelTarget()
+      return
+    }
+
+    if (battleState.phase === 'confirmActions') {
+      cancelConfirmCommand()
+    }
+  }, [battleState.phase, cancelCharacterCommand, cancelConfirmCommand, cancelTarget])
+
   const clearBattleTimers = useCallback(() => {
     if (resultTimerRef.current !== null) {
       window.clearTimeout(resultTimerRef.current)
@@ -511,6 +534,15 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
         actingTargetEnemyId={isExecuting || isResolving ? battleState.executingTargetEnemyId : undefined}
         showDebugInfo={isBattleDebugEnabled}
       />
+
+      {canClickCancelBattleCommand && (
+        <button
+          className="battle-click-cancel-layer"
+          type="button"
+          aria-label="戻る"
+          onClick={cancelCurrentBattleCommand}
+        />
+      )}
 
       {showsBattleWindows && (
         <div className="battle-hud">
@@ -693,16 +725,19 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
       )}
 
       {escapeResultStep !== 'none' && (
-        <div className="escape-result-screen" aria-label="逃走結果">
+        <div
+          className="escape-result-screen"
+          aria-label="逃走結果"
+          onClick={canClickEscapeResult ? closeEscapeResult : undefined}
+          role={canClickEscapeResult ? 'button' : undefined}
+          tabIndex={canClickEscapeResult ? 0 : undefined}
+        >
           {(escapeResultStep === 'message' || escapeResultStep === 'closing') && (
-            <button
+            <div
               className="escape-result-window battle-window"
-              type="button"
-              onClick={closeEscapeResult}
-              disabled={escapeResultStep === 'closing'}
             >
               にげきれた
-            </button>
+            </div>
           )}
           {escapeResultStep === 'closing' && <div className="result-fade-overlay" aria-hidden="true" />}
         </div>
