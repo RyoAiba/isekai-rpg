@@ -3,6 +3,8 @@ import allenAttackSprite from '../assets/characters/allen/attack.png'
 import allenIdleSprite from '../assets/characters/allen/idle.png'
 import jowyAttackSprite from '../assets/characters/Jowy/attack.png'
 import jowyIdleSprite from '../assets/characters/Jowy/idle.png'
+import nanamiAttackSprite from '../assets/characters/Nanami/attack.png'
+import nanamiIdleSprite from '../assets/characters/Nanami/idle.png'
 
 export const allenBattleSprite: BattleSprite = {
   alt: 'アレン',
@@ -30,7 +32,21 @@ export const jowyBattleSprite: BattleSprite = {
   },
 }
 
+export const nanamiBattleSprite: BattleSprite = {
+  alt: 'ナナミ',
+  width: 128,
+  height: 128,
+  attackHitFrameMs: 480,
+  motions: {
+    idle: nanamiIdleSprite,
+    approach: nanamiIdleSprite,
+    attack: nanamiAttackSprite,
+    return: nanamiIdleSprite,
+  },
+}
+
 export const defaultBattleSpritesByCharacterId: Record<number, BattleSprite> = {
   1: allenBattleSprite,
   2: jowyBattleSprite,
+  3: nanamiBattleSprite,
 }
