@@ -6,6 +6,8 @@ import { getSpeed } from './StatCalculator'
 import type {
   BattleAction,
   BattleCommand,
+  BattleDamagePopup,
+  BattlePartyMotion,
   BattleQueuedAction,
   BattleRewards,
   BattleState,
@@ -18,6 +20,7 @@ import { cloneCharacters } from '../utils/characterClone'
 
 const POISON_DAMAGE = 10
 const DEFAULT_BATTLE_MONEY = 60
+const PARTY_MOTION_STAGGER_MS = 200
 
 type EnemyReward = {
   baseExp?: number
@@ -37,6 +40,20 @@ function getNextTimelineId(timeline: BattleTimelineEvent[]) {
 
 function addTimeline(timeline: BattleTimelineEvent[], message: string) {
   timeline.push({ id: getNextTimelineId(timeline), message })
+}
+
+function createDamagePopup(
+  state: BattleState,
+  targetSide: BattleDamagePopup['targetSide'],
+  targetId: number,
+  damage: number,
+) {
+  return {
+    id: state.lastDamageEventId + state.damagePopups.length + 1,
+    targetSide,
+    targetId,
+    damage,
+  }
 }
 
 export function createInitialBattleState(
@@ -64,6 +81,8 @@ export function createInitialBattleState(
     executingCharacterId: undefined,
     executingEnemyId: undefined,
     executingTargetEnemyId: undefined,
+    activePartyMotions: [],
+    damagePopups: [],
     lastActionDefeatedEnemy: false,
     lastDefeatedEnemyId: undefined,
     promotedEnemyId: undefined,
@@ -260,6 +279,8 @@ export function forceBattleVictory(state: BattleState): BattleState {
     executingCharacterId: undefined,
     executingEnemyId: undefined,
     executingTargetEnemyId: undefined,
+    activePartyMotions: [],
+    damagePopups: [],
     lastActionDefeatedEnemy: false,
     lastDefeatedEnemyId: undefined,
     promotedEnemyId: undefined,
@@ -551,6 +572,8 @@ export function applyConfirmCommand(
       executingCharacterId: undefined,
       executingEnemyId: undefined,
       executingTargetEnemyId: undefined,
+      activePartyMotions: [],
+      damagePopups: [],
       actions: [],
     }
   }
@@ -570,6 +593,8 @@ export function applyConfirmCommand(
     executingCharacterId: undefined,
     executingEnemyId: undefined,
     executingTargetEnemyId: undefined,
+    activePartyMotions: [],
+    damagePopups: [],
     actions: state.actions.slice(0, -1),
   }
 }
@@ -602,6 +627,8 @@ export function startBattleExecution(state: BattleState): BattleState {
     executingCharacterId: undefined,
     executingEnemyId: undefined,
     executingTargetEnemyId: undefined,
+    activePartyMotions: [],
+    damagePopups: [],
     lastActionDefeatedEnemy: false,
     lastDefeatedEnemyId: undefined,
     promotedEnemyId: undefined,
@@ -633,6 +660,8 @@ function resetPlayerTurn(state: BattleState): BattleState {
     executingCharacterId: undefined,
     executingEnemyId: undefined,
     executingTargetEnemyId: undefined,
+    activePartyMotions: [],
+    damagePopups: [],
     lastActionDefeatedEnemy: false,
     lastDefeatedEnemyId: undefined,
     promotedEnemyId: undefined,
@@ -670,45 +699,103 @@ function applyAttackEffects(
   return nextTarget
 }
 
-export function canUseAnimatedPartyAction(state: BattleState) {
-  const action = state.actionQueue[state.executingActionIndex]
+function getAnimatedPartyActionTarget(
+  state: BattleState,
+  actionIndex: number,
+  enemies: Character[] = state.enemies,
+) {
+  const action = state.actionQueue[actionIndex]
 
   if (!action || action.actorSide !== 'party' || action.type !== 'attack') {
-    return false
+    return undefined
   }
 
   const attacker = state.party.find((character) => character.id === action.characterId)
-  const target = resolveActionTarget(state.enemies, action.targetId)
+  const target = resolveActionTarget(enemies, action.targetId)
 
-  return attacker?.battleSprite !== undefined
+  if (
+    attacker?.battleSprite !== undefined
     && (attacker.range === 'S' || attacker.range === 'M')
     && target?.position === 'front'
     && attacker.currentHp > 0
     && target.currentHp > 0
+  ) {
+    return target
+  }
+
+  return undefined
+}
+
+export function canUseAnimatedPartyAction(state: BattleState) {
+  return getAnimatedPartyActionTarget(state, state.executingActionIndex) !== undefined
+}
+
+function createAnimatedPartyMotions(state: BattleState): BattlePartyMotion[] {
+  const motions: BattlePartyMotion[] = []
+  const usedTargetIds = new Set<number>()
+  const projectedEnemies = cloneCharacters(state.enemies)
+
+  for (let actionIndex = state.executingActionIndex; actionIndex < state.actionQueue.length; actionIndex += 1) {
+    const action = state.actionQueue[actionIndex]
+    const attacker = state.party.find((character) => character.id === action?.characterId)
+    const target = getAnimatedPartyActionTarget(state, actionIndex, projectedEnemies)
+
+    if (!action || !attacker || !target) {
+      break
+    }
+
+    if (usedTargetIds.has(target.id)) {
+      break
+    }
+
+    const projectedTargetIndex = projectedEnemies.findIndex((enemy) => enemy.id === target.id)
+    const { damage } = calculateDamage({ attacker, defender: target })
+
+    if (projectedTargetIndex >= 0) {
+      projectedEnemies[projectedTargetIndex] = {
+        ...projectedEnemies[projectedTargetIndex],
+        currentHp: Math.max(projectedEnemies[projectedTargetIndex].currentHp - damage, 0),
+      }
+    }
+
+    usedTargetIds.add(target.id)
+    motions.push({
+      actionIndex,
+      animationId: state.executionAnimationId + motions.length + 1,
+      characterId: action.characterId,
+      targetEnemyId: target.id,
+      damage,
+      executionStep: 'approach',
+      startDelayMs: motions.length * PARTY_MOTION_STAGGER_MS,
+    })
+  }
+
+  return motions
 }
 
 export function beginAnimatedPartyAction(state: BattleState): BattleState {
-  const action = state.actionQueue[state.executingActionIndex]
-  const attacker = state.party.find((character) => character.id === action?.characterId)
-  const target = resolveActionTarget(state.enemies, action?.targetId)
+  const activePartyMotions = createAnimatedPartyMotions(state)
+  const firstMotion = activePartyMotions[0]
 
-  if (!action || !attacker || !target) {
+  if (!firstMotion) {
     return state
   }
 
   return {
     ...state,
-    executionAnimationId: state.executionAnimationId + 1,
+    executionAnimationId: state.executionAnimationId + activePartyMotions.length,
     executionStep: 'approach',
-    executingCharacterId: attacker.id,
+    executingCharacterId: firstMotion.characterId,
     executingEnemyId: undefined,
-    executingTargetEnemyId: target.id,
+    executingTargetEnemyId: firstMotion.targetEnemyId,
+    activePartyMotions,
     lastActionDefeatedEnemy: false,
     lastDefeatedEnemyId: undefined,
     promotedEnemyId: undefined,
     promotionAnimationId: state.promotionAnimationId,
     lastDamagedEnemyId: undefined,
     lastDamagedCharacterId: undefined,
+    damagePopups: [],
   }
 }
 
@@ -720,11 +807,15 @@ export function advanceAnimatedPartyActionToAttack(state: BattleState): BattleSt
   return {
     ...state,
     executionStep: 'attack',
+    activePartyMotions: state.activePartyMotions.map((motion) => ({
+      ...motion,
+      executionStep: 'attack',
+    })),
   }
 }
 
-export function resolveAnimatedPartyActionHit(state: BattleState): BattleState {
-  const action = state.actionQueue[state.executingActionIndex]
+function applyAnimatedPartyActionHit(state: BattleState, motion: BattlePartyMotion): BattleState {
+  const action = state.actionQueue[motion.actionIndex]
   const nextEnemies = cloneCharacters(state.enemies)
   const timeline: BattleTimelineEvent[] = [...state.timeline]
   const attacker = state.party.find((character) => character.id === action?.characterId)
@@ -732,7 +823,6 @@ export function resolveAnimatedPartyActionHit(state: BattleState): BattleState {
   if (!action || !attacker || attacker.currentHp <= 0) {
     return {
       ...state,
-      executionStep: 'return',
       timeline,
     }
   }
@@ -740,17 +830,19 @@ export function resolveAnimatedPartyActionHit(state: BattleState): BattleState {
   let defeatedEnemyThisAction = false
   let defeatedEnemyId: number | undefined
   let damagedEnemyId: number | undefined
+  let damageAmount = 0
 
-  const target = state.executingTargetEnemyId === undefined
-    ? resolveActionTarget(nextEnemies, action.targetId)
-    : nextEnemies.find((enemy) => enemy.id === state.executingTargetEnemyId && enemy.currentHp > 0)
+  const target = nextEnemies.find((enemy) => enemy.id === motion.targetEnemyId && enemy.currentHp > 0)
       ?? resolveActionTarget(nextEnemies, action.targetId)
   const targetIndex = nextEnemies.findIndex((enemy) => enemy.id === target?.id)
 
   if (targetIndex < 0 || !target) {
     addTimeline(timeline, attacker.name + 'の攻撃対象はいなかった')
   } else {
-    const { damage } = calculateDamage({ attacker, defender: target })
+    const damage = motion.damage > 0
+      ? motion.damage
+      : calculateDamage({ attacker, defender: target }).damage
+    damageAmount = damage
     const nextHp = Math.max(target.currentHp - damage, 0)
     defeatedEnemyThisAction = nextHp === 0
     defeatedEnemyId = defeatedEnemyThisAction ? target.id : undefined
@@ -774,7 +866,6 @@ export function resolveAnimatedPartyActionHit(state: BattleState): BattleState {
 
   return {
     ...state,
-    executionStep: 'return',
     activeCharacterIndex: 0,
     selectedPartyCommandIndex: 0,
     selectedCharacterCommandIndex: 0,
@@ -792,6 +883,9 @@ export function resolveAnimatedPartyActionHit(state: BattleState): BattleState {
     lastDamagedEnemyId: damagedEnemyId,
     lastDamagedCharacterId: undefined,
     lastDamageEventId: damagedEnemyId === undefined ? state.lastDamageEventId : state.lastDamageEventId + 1,
+    damagePopups: damagedEnemyId === undefined
+      ? state.damagePopups
+      : [...state.damagePopups, createDamagePopup(state, 'enemy', damagedEnemyId, damageAmount)],
     enemies: promotionResult.nextEnemies,
     rewards: isVictory ? calculateRewards(state.enemies) : state.rewards,
     timeline,
@@ -800,17 +894,57 @@ export function resolveAnimatedPartyActionHit(state: BattleState): BattleState {
   }
 }
 
+export function resolveAnimatedPartyActionHit(state: BattleState): BattleState {
+  const activePartyMotions = state.activePartyMotions.length > 0
+    ? state.activePartyMotions
+    : state.executingCharacterId !== undefined && state.executingTargetEnemyId !== undefined
+      ? [{
+          actionIndex: state.executingActionIndex,
+          animationId: state.executionAnimationId,
+          characterId: state.executingCharacterId,
+          targetEnemyId: state.executingTargetEnemyId,
+          damage: 0,
+          executionStep: 'attack' as const,
+          startDelayMs: 0,
+        }]
+      : []
+  let nextState: BattleState = {
+    ...state,
+    damagePopups: [],
+  }
+
+  for (const motion of activePartyMotions) {
+    if (nextState.isVictory) {
+      break
+    }
+
+    nextState = applyAnimatedPartyActionHit(nextState, motion)
+  }
+
+  return {
+    ...nextState,
+    executionStep: 'return',
+    activePartyMotions: nextState.activePartyMotions.map((motion) => ({
+      ...motion,
+      executionStep: 'return',
+    })),
+  }
+}
+
 export function finishAnimatedPartyAction(state: BattleState): BattleState {
   const isVictory = state.isVictory
+  const completedActionCount = Math.max(state.activePartyMotions.length, 1)
 
   return {
     ...state,
     phase: isVictory ? 'resolving' : 'executing',
     executionStep: undefined,
-    executingActionIndex: state.executingActionIndex + 1,
+    executingActionIndex: state.executingActionIndex + completedActionCount,
     executingCharacterId: undefined,
     executingEnemyId: undefined,
     executingTargetEnemyId: undefined,
+    activePartyMotions: [],
+    damagePopups: [],
     actions: isVictory ? [] : state.actions,
     actionQueue: isVictory ? [] : state.actionQueue,
   }
@@ -836,6 +970,7 @@ function executePartyAction(state: BattleState, action: BattleQueuedAction): Bat
   let defeatedEnemyThisAction = false
   let defeatedEnemyId: number | undefined
   let damagedEnemyId: number | undefined
+  let damageAmount = 0
 
   if (action.type === 'defense') {
     addTimeline(timeline, attacker.name + 'は身を守った')
@@ -849,6 +984,7 @@ function executePartyAction(state: BattleState, action: BattleQueuedAction): Bat
       addTimeline(timeline, attacker.name + 'の攻撃対象はいなかった')
     } else {
       const { damage } = calculateDamage({ attacker, defender: target })
+      damageAmount = damage
       const nextHp = Math.max(target.currentHp - damage, 0)
       defeatedEnemyThisAction = nextHp === 0
       defeatedEnemyId = defeatedEnemyThisAction ? target.id : undefined
@@ -894,6 +1030,9 @@ function executePartyAction(state: BattleState, action: BattleQueuedAction): Bat
     lastDamagedEnemyId: damagedEnemyId,
     lastDamagedCharacterId: undefined,
     lastDamageEventId: damagedEnemyId === undefined ? state.lastDamageEventId : state.lastDamageEventId + 1,
+    damagePopups: damagedEnemyId === undefined
+      ? []
+      : [createDamagePopup(state, 'enemy', damagedEnemyId, damageAmount)],
     actions: isVictory ? [] : state.actions,
     actionQueue: isVictory ? [] : state.actionQueue,
     enemies: promotionResult.nextEnemies,
@@ -980,6 +1119,7 @@ function executeEnemyAction(state: BattleState, action: BattleQueuedAction): Bat
     lastDamagedEnemyId: undefined,
     lastDamagedCharacterId: target.id,
     lastDamageEventId: state.lastDamageEventId + 1,
+    damagePopups: [createDamagePopup(state, 'party', target.id, damage)],
     isVictory: false,
     isDefeat,
   }

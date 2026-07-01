@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import { getActiveEffectDefinitions } from '../../battle/effects/EffectManager'
 import { getMaxHp } from '../../battle/StatCalculator'
-import type { BattleExecutionStep } from '../../types/battle'
+import type { BattleDamagePopup, BattleExecutionStep, BattlePartyMotion } from '../../types/battle'
 import type { BattleSpriteMotion, Character } from '../../types/character'
 import { toFullWidthNumber } from '../../utils/numberFormat'
 
@@ -21,6 +21,8 @@ type BattleFieldProps = {
   actingCharacterId?: number
   actingEnemyId?: number
   actingTargetEnemyId?: number
+  activePartyMotions?: BattlePartyMotion[]
+  damagePopups?: BattleDamagePopup[]
   showDebugInfo?: boolean
 }
 
@@ -186,6 +188,8 @@ export function BattleField({
   actingCharacterId,
   actingEnemyId,
   actingTargetEnemyId,
+  activePartyMotions = [],
+  damagePopups = [],
   showDebugInfo = false,
 }: BattleFieldProps) {
   const visibleEnemies = enemies.filter(
@@ -213,6 +217,9 @@ export function BattleField({
     <div className="battle-field" aria-label="戦闘フィールド">
       <div className="battle-side battle-side-enemy" aria-label="敵エリア">
         {orderedEnemies.map((enemy, index) => {
+          const damagePopup = damagePopups.find(
+            (popup) => popup.targetSide === 'enemy' && popup.targetId === enemy.id,
+          )
           const enemyLane = enemy.lane ?? ((index % 3) + 1)
           const enemyFormationSlot = enemy.position === 'back' ? enemyLane : enemyLane + 3
           const promotionRoute = enemy.id === promotedEnemyId
@@ -249,6 +256,11 @@ export function BattleField({
                   {getDebugInfo(enemy, { showHp: true })}
                 </small>
               )}
+              {damagePopup && (
+                <span className="damage-popup" key={damagePopup.id}>
+                  {toFullWidthNumber(damagePopup.damage)}
+                </span>
+              )}
             </div>
           )
         })}
@@ -256,30 +268,37 @@ export function BattleField({
 
       <div className="battle-side battle-side-party" aria-label="味方エリア">
         {orderedParty.map((character, index) => {
+          const damagePopup = damagePopups.find(
+            (popup) => popup.targetSide === 'party' && popup.targetId === character.id,
+          )
+          const activePartyMotion = activePartyMotions.find((motion) => motion.characterId === character.id)
           const battleSprite = character.battleSprite
           const battleSpriteMotion = getBattleSpriteMotion(character, {
-            actingCharacterId,
-            executionStep,
+            actingCharacterId: activePartyMotion?.characterId ?? actingCharacterId,
+            executionStep: activePartyMotion?.executionStep ?? executionStep,
           })
           const battleSpriteSrc =
             battleSprite?.motions[battleSpriteMotion] ?? battleSprite?.motions.idle
-          const targetEnemy = actingTargetEnemyId === undefined
+          const motionTargetEnemyId = activePartyMotion?.targetEnemyId ?? actingTargetEnemyId
+          const targetEnemy = motionTargetEnemyId === undefined
             ? undefined
-            : enemies.find((enemy) => enemy.id === actingTargetEnemyId)
+            : enemies.find((enemy) => enemy.id === motionTargetEnemyId)
           const targetLane = targetEnemy?.lane
-            ?? (actingTargetEnemyId === undefined ? undefined : frontEnemySlotById.get(actingTargetEnemyId))
+            ?? (motionTargetEnemyId === undefined ? undefined : frontEnemySlotById.get(motionTargetEnemyId))
           const partyFormationSlot = index + 1
           const meleeRoute = battleSprite && targetLane !== undefined
             ? getPartyMeleeRoute(partyFormationSlot, targetLane)
             : undefined
           const isMeleeActingCharacter =
-            character.id === actingCharacterId && executionStep !== undefined && meleeRoute !== undefined
+            (activePartyMotion !== undefined || character.id === actingCharacterId)
+            && battleSpriteMotion !== 'idle'
+            && meleeRoute !== undefined
           const partyClassName = [
             'unit-card',
             'party-unit',
             battleSprite ? 'has-battle-sprite' : '',
             isMeleeActingCharacter ? 'is-melee-acting-character' : '',
-            isMeleeActingCharacter ? 'is-melee-' + executionStep : '',
+            isMeleeActingCharacter ? 'is-melee-' + battleSpriteMotion : '',
             'formation-slot-' + (index + 1),
             character.id === activeCharacterId ? 'is-active-character' : '',
             character.id === actingCharacterId ? 'is-acting-character' : '',
@@ -296,9 +315,16 @@ export function BattleField({
                 + '-'
                 + (character.id === damagedCharacterId ? damageEventId : 0)
                 + '-'
-                + (isMeleeActingCharacter ? meleeActionKey : 'idle')
+                + (isMeleeActingCharacter ? (activePartyMotion?.animationId ?? meleeActionKey) : 'idle')
               }
-              style={meleeRoute ? getMeleeRouteStyle(meleeRoute) : undefined}
+              style={
+                meleeRoute
+                  ? {
+                      ...getMeleeRouteStyle(meleeRoute),
+                      '--melee-start-delay': `${activePartyMotion?.startDelayMs ?? 0}ms`,
+                    } as CSSProperties
+                  : undefined
+              }
             >
               {battleSprite && battleSpriteSrc ? (
                 <img
@@ -314,6 +340,11 @@ export function BattleField({
                 <span>{character.name}</span>
               )}
               {showDebugInfo && <small className="unit-debug-info">{getDebugInfo(character)}</small>}
+              {damagePopup && (
+                <span className="damage-popup" key={damagePopup.id}>
+                  {toFullWidthNumber(damagePopup.damage)}
+                </span>
+              )}
             </div>
           )
         })}

@@ -12,6 +12,23 @@ export type BattlePhase =
 
 export type BattleExecutionStep = 'approach' | 'attack' | 'return'
 
+export type BattlePartyMotion = {
+  actionIndex: number
+  animationId: number
+  characterId: number
+  targetEnemyId: number
+  damage: number
+  executionStep: BattleExecutionStep
+  startDelayMs: number
+}
+
+export type BattleDamagePopup = {
+  id: number
+  targetSide: 'party' | 'enemy'
+  targetId: number
+  damage: number
+}
+
 export type PartyCommandType = 'fight' | 'escape' | 'auto'
 
 export type ConfirmCommandType = 'yes' | 'no'
@@ -78,6 +95,8 @@ export type BattleState = {
   executingCharacterId?: number
   executingEnemyId?: number
   executingTargetEnemyId?: number
+  activePartyMotions: BattlePartyMotion[]
+  damagePopups: BattleDamagePopup[]
   lastActionDefeatedEnemy: boolean
   lastDefeatedEnemyId?: number
   promotedEnemyId?: number

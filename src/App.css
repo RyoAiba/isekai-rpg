@@ -583,7 +583,8 @@ button.is-selected {
 }
 
 .party-unit.is-melee-approach {
-  animation: melee-approach 420ms linear forwards;
+  animation: melee-approach 400ms linear forwards;
+  animation-delay: var(--melee-start-delay, 0ms);
 }
 
 .party-unit.is-melee-attack {
@@ -591,7 +592,26 @@ button.is-selected {
 }
 
 .party-unit.is-melee-return {
-  animation: melee-return 420ms linear forwards;
+  animation: melee-return 400ms linear forwards;
+}
+
+.damage-popup {
+  position: absolute;
+  left: 50%;
+  top: -18px;
+  z-index: 6;
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+  text-shadow:
+    2px 2px 0 #111,
+    -1px -1px 0 #111,
+    1px -1px 0 #111,
+    -1px 1px 0 #111;
+  transform: translate(-50%, 0);
+  animation: damage-popup-rise 760ms ease-out forwards;
 }
 
 .battle-side-enemy .formation-slot-1 {
@@ -1353,6 +1373,23 @@ button.is-selected {
 
   100% {
     translate: 0 0;
+  }
+}
+
+@keyframes damage-popup-rise {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+
+  16% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -36px);
   }
 }
 

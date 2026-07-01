@@ -63,7 +63,7 @@ const BATTLE_DEFEAT_CHAIN_INTERVAL_MS = 450
 const RESULT_OVERLAY_DELAY_MS = 1000
 const DEFEAT_RESULT_FADE_DURATION_MS = 1000
 const ESCAPE_RESULT_FADE_DURATION_MS = 1000
-const MELEE_MOTION_DURATION_MS = 420
+const MELEE_MOTION_DURATION_MS = 400
 const APPROACH_DURATION_MS = MELEE_MOTION_DURATION_MS
 const RETURN_DURATION_MS = MELEE_MOTION_DURATION_MS
 const DEFAULT_ATTACK_HIT_FRAME_MS = 320
@@ -188,9 +188,14 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
     }
 
     if (battleState.executionStep === 'approach') {
+      const maxStartDelayMs = Math.max(
+        ...battleState.activePartyMotions.map((motion) => motion.startDelayMs),
+        0,
+      )
+
       actionTimerRef.current = window.setTimeout(() => {
         setBattleState((currentState) => advanceAnimatedPartyActionToAttack(currentState))
-      }, APPROACH_DURATION_MS)
+      }, APPROACH_DURATION_MS + maxStartDelayMs)
 
       return () => {
         if (actionTimerRef.current !== null) {
@@ -200,10 +205,16 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
     }
 
     if (battleState.executionStep === 'attack') {
-      const actingCharacter = battleState.party.find(
-        (character) => character.id === battleState.executingCharacterId,
+      const activeMotionCharacterIds = battleState.activePartyMotions.map((motion) => motion.characterId)
+      const actingCharacters = activeMotionCharacterIds.length > 0
+        ? battleState.party.filter((character) => activeMotionCharacterIds.includes(character.id))
+        : battleState.party.filter((character) => character.id === battleState.executingCharacterId)
+      const hitFrameMs = Math.max(
+        ...actingCharacters.map(
+          (character) => character.battleSprite?.attackHitFrameMs ?? DEFAULT_ATTACK_HIT_FRAME_MS,
+        ),
+        DEFAULT_ATTACK_HIT_FRAME_MS,
       )
-      const hitFrameMs = actingCharacter?.battleSprite?.attackHitFrameMs ?? DEFAULT_ATTACK_HIT_FRAME_MS
 
       actionTimerRef.current = window.setTimeout(() => {
         setBattleState((currentState) => resolveAnimatedPartyActionHit(currentState))
@@ -255,6 +266,7 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
     battleState.executingEnemyId,
     battleState.executionStep,
     battleState.lastActionDefeatedEnemy,
+    battleState.activePartyMotions,
     battleState.party,
     battleState.phase,
   ])
@@ -532,6 +544,8 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
         actingCharacterId={isExecuting || isResolving ? battleState.executingCharacterId : undefined}
         actingEnemyId={isExecuting || isResolving ? battleState.executingEnemyId : undefined}
         actingTargetEnemyId={isExecuting || isResolving ? battleState.executingTargetEnemyId : undefined}
+        activePartyMotions={isExecuting || isResolving ? battleState.activePartyMotions : []}
+        damagePopups={battleState.damagePopups}
         showDebugInfo={isBattleDebugEnabled}
       />
 
