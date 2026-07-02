@@ -593,7 +593,7 @@ button.is-selected {
 }
 
 .party-unit.is-melee-approach {
-  animation: melee-approach 400ms linear forwards;
+  animation: melee-approach 450ms linear both;
   animation-delay: var(--melee-start-delay, 0ms);
 }
 
@@ -602,7 +602,7 @@ button.is-selected {
 }
 
 .party-unit.is-melee-return {
-  animation: melee-return 400ms linear forwards;
+  animation: melee-return 450ms linear both;
   animation-delay: var(--melee-start-delay, 0ms);
 }
 

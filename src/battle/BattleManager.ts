@@ -20,7 +20,7 @@ import { cloneCharacters } from '../utils/characterClone'
 
 const POISON_DAMAGE = 10
 const DEFAULT_BATTLE_MONEY = 60
-const PARTY_MOTION_STAGGER_MS = 200
+const PARTY_MOTION_STAGGER_MS = 225
 
 type EnemyReward = {
   baseExp?: number
