@@ -212,6 +212,10 @@ function createPartyQueuedActions(actions: BattleAction[], party: Character[]): 
   const queuedActions: BattleQueuedAction[] = []
 
   for (const action of actions) {
+    if (action.type === 'defense') {
+      continue
+    }
+
     const actor = party.find((character) => character.id === action.characterId)
 
     if (!actor || actor.currentHp <= 0) {
@@ -226,6 +230,24 @@ function createPartyQueuedActions(actions: BattleAction[], party: Character[]): 
   }
 
   return queuedActions
+}
+
+function addDefenseActionsTimeline(
+  timeline: BattleTimelineEvent[],
+  actions: BattleAction[],
+  party: Character[],
+) {
+  for (const action of actions) {
+    if (action.type !== 'defense') {
+      continue
+    }
+
+    const actor = party.find((character) => character.id === action.characterId)
+
+    if (actor && actor.currentHp > 0) {
+      addTimeline(timeline, actor.name + 'は身を守った')
+    }
+  }
 }
 
 function createTurnQueue(state: BattleState): BattleQueuedAction[] {
@@ -606,6 +628,12 @@ export function startBattleExecution(state: BattleState): BattleState {
   const roundStartTimeline = stateAfterRoundStartEffects.timeline.slice(timelineLengthBeforeRoundStart)
   const timeline = [...state.timeline]
 
+  addDefenseActionsTimeline(
+    timeline,
+    stateAfterRoundStartEffects.actions,
+    stateAfterRoundStartEffects.party,
+  )
+
   addTurnQueueTimeline(
     timeline,
     actionQueue,
@@ -795,7 +823,6 @@ export function beginAnimatedPartyAction(state: BattleState): BattleState {
     promotionAnimationId: state.promotionAnimationId,
     lastDamagedEnemyId: undefined,
     lastDamagedCharacterId: undefined,
-    damagePopups: [],
   }
 }
 
@@ -944,7 +971,6 @@ export function finishAnimatedPartyAction(state: BattleState): BattleState {
     executingEnemyId: undefined,
     executingTargetEnemyId: undefined,
     activePartyMotions: [],
-    damagePopups: [],
     actions: isVictory ? [] : state.actions,
     actionQueue: isVictory ? [] : state.actionQueue,
   }
@@ -1031,7 +1057,7 @@ function executePartyAction(state: BattleState, action: BattleQueuedAction): Bat
     lastDamagedCharacterId: undefined,
     lastDamageEventId: damagedEnemyId === undefined ? state.lastDamageEventId : state.lastDamageEventId + 1,
     damagePopups: damagedEnemyId === undefined
-      ? []
+      ? state.damagePopups
       : [createDamagePopup(state, 'enemy', damagedEnemyId, damageAmount)],
     actions: isVictory ? [] : state.actions,
     actionQueue: isVictory ? [] : state.actionQueue,

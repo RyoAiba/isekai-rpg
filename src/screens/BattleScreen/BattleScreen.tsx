@@ -228,9 +228,14 @@ export function BattleScreen({ party, money, onBattleComplete, onEscape }: Battl
     }
 
     if (battleState.executionStep === 'return') {
+      const maxStartDelayMs = Math.max(
+        ...battleState.activePartyMotions.map((motion) => motion.startDelayMs),
+        0,
+      )
+
       actionTimerRef.current = window.setTimeout(() => {
         setBattleState((currentState) => finishAnimatedPartyAction(currentState))
-      }, RETURN_DURATION_MS)
+      }, RETURN_DURATION_MS + maxStartDelayMs)
 
       return () => {
         if (actionTimerRef.current !== null) {

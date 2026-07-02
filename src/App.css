@@ -572,6 +572,16 @@ button.is-selected {
   animation: enemy-promote 720ms ease-out 100ms both;
 }
 
+.enemy-unit.is-damage-popup-anchor {
+  border: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.enemy-unit.is-damage-popup-anchor> :not(.damage-popup) {
+  visibility: hidden;
+}
+
 .party-unit {
   justify-self: end;
   transition: translate 220ms ease-in-out;
@@ -593,6 +603,7 @@ button.is-selected {
 
 .party-unit.is-melee-return {
   animation: melee-return 400ms linear forwards;
+  animation-delay: var(--melee-start-delay, 0ms);
 }
 
 .damage-popup {
@@ -611,7 +622,7 @@ button.is-selected {
     1px -1px 0 #111,
     -1px 1px 0 #111;
   transform: translate(-50%, 0);
-  animation: damage-popup-rise 760ms ease-out forwards;
+  animation: damage-popup-rise 1500ms ease-out forwards;
 }
 
 .battle-side-enemy .formation-slot-1 {
@@ -1378,18 +1389,18 @@ button.is-selected {
 
 @keyframes damage-popup-rise {
   0% {
-    opacity: 0;
-    transform: translate(-50%, 8px);
-  }
-
-  16% {
     opacity: 1;
     transform: translate(-50%, 0);
   }
 
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -24px);
+  }
+
   100% {
     opacity: 0;
-    transform: translate(-50%, -36px);
+    transform: translate(-50%, -24px);
   }
 }
 

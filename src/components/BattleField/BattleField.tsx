@@ -201,8 +201,13 @@ export function BattleField({
   damagePopups = [],
   showDebugInfo = false,
 }: BattleFieldProps) {
+  const damagePopupEnemyIds = new Set(
+    damagePopups
+      .filter((popup) => popup.targetSide === 'enemy')
+      .map((popup) => popup.targetId),
+  )
   const visibleEnemies = enemies.filter(
-    (enemy) => enemy.currentHp > 0 || enemy.id === defeatedEnemyId,
+    (enemy) => enemy.currentHp > 0 || enemy.id === defeatedEnemyId || damagePopupEnemyIds.has(enemy.id),
   )
   const orderedEnemies = [
     ...visibleEnemies
@@ -229,6 +234,8 @@ export function BattleField({
           const damagePopup = damagePopups.find(
             (popup) => popup.targetSide === 'enemy' && popup.targetId === enemy.id,
           )
+          const isDamagePopupAnchor =
+            enemy.currentHp <= 0 && enemy.id !== defeatedEnemyId && damagePopup !== undefined
           const enemyLane = enemy.lane ?? ((index % 3) + 1)
           const enemyFormationSlot = enemy.position === 'back' ? enemyLane : enemyLane + 3
           const promotionRoute = enemy.id === promotedEnemyId
@@ -237,6 +244,7 @@ export function BattleField({
           const enemyClassName = [
             'unit-card',
             'enemy-unit',
+            isDamagePopupAnchor ? 'is-damage-popup-anchor' : '',
             'formation-slot-' + enemyFormationSlot,
             enemy.id === activeEnemyId ? 'is-active-character' : '',
             enemy.id === actingEnemyId ? 'is-acting-character' : '',
